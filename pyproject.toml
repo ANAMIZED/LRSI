@@ -24,10 +24,12 @@ dependencies = [
 dev = ["pytest>=8.3.0", "pytest-asyncio>=0.24.0"]
 live = ["openai>=1.0.0"]
 mcp = ["mcp>=1.0.0"]
+api = ["fastapi", "uvicorn"]
 
 [project.scripts]
 lrsi = "lrsi.cli:app"
 lrsi-mcp = "lrsi.mcp.server:main"
+lrsi-api = "lrsi.api.main:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
