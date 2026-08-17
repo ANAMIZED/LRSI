@@ -1,3 +1,8 @@
+---
+name: skill-rsi
+description: Skill-RSI style improvement loop under LRSI gates
+---
+
 # Skill: skill-rsi
 
 ## Purpose
