@@ -1,3 +1,8 @@
+---
+name: harness-plugin
+description: Hot-swappable harness components with reversible effects
+---
+
 # Skill: harness-plugin
 
 ## Purpose
