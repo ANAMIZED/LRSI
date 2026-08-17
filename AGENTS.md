@@ -18,16 +18,16 @@ pip install -e ".[dev]"
 python runner.py --iterations 3 --storage-path run_log.json --memory-path memory_store.json
 python -m pytest -q -rs
 
-# This repo
+# This repo (outer stack)
+pip install -e ".[dev]"
 bash scripts/verify.sh
+pytest -q
 ```
-
-Unit tests: `pytest -q`
 
 ## Hard rules for agents
 
 1. Never break the verify contract.
-2. Fail closed. Every mutation of code, skills, prompts, harness, or weights must go through the LRSI Runtime Core boundary.
+2. Fail closed. Every mutation of code, skills, prompts, harness, or weights must go through the LRSI gate boundary.
 3. RED decisions in PreProposalAdversarial are terminal. Do not soften them.
 4. Evidence-gated promotion only — independent held-out metrics, never self-report.
 5. Keep plugins reversible (temporal + spatial composability).
@@ -36,4 +36,13 @@ Unit tests: `pytest -q`
 
 ## Surfaces that must stay working
 
-README contract, AGENTS.md, skills/*/SKILL.md, scripts/verify.sh, src/ scaffolding.
+| Surface | Entry |
+|---------|-------|
+| CLI | `lrsi status` / `lrsi agents …` / `lrsi workflow` / `lrsi mutate` / `lrsi audit` |
+| SDK | `from lrsi.sdk import LRSIClient` |
+| MCP | `lrsi-mcp` / `from lrsi.mcp.server import mcp` |
+| Multi-agent workflows | improver → evaluator → council under GateEngine |
+| Skills | `skills/*/SKILL.md` (5 packages) |
+| Audit | hash-chained append-only trail + `verify_chain()` |
+| Tests | `pytest -q` |
+| Verify | `bash scripts/verify.sh` |
