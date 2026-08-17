@@ -7,9 +7,11 @@
 
 **LRSI (Local Recursive Self-Improvement) — Autonomous Agentic Operating System**
 
-LRSI is achievable as a sovereign, closed-loop system on dual Blackwell hardware (RTX 5090 + RTX 6000-series). The foundation is the real, open **LRSI Runtime Core** ([marcuszimmermann365/IRSI](https://github.com/marcuszimmermann365/IRSI), v13.3.0), a phase-based, event-sourced, fail-closed research runtime explicitly designed for controlled self-modification, interruptibility, auditability, human-review binding, and replayable decisions.
+Sovereign, closed-loop system on dual Blackwell hardware (RTX 5090 + RTX 6000-series). Built on the real open **LRSI Runtime Core** ([marcuszimmermann365/IRSI](https://github.com/marcuszimmermann365/IRSI), v13.3.0) — a phase-based, event-sourced, fail-closed research runtime for controlled self-modification, interruptibility, auditability, and replayable decisions.
 
-It is **not** a complete production OS or certified alignment solution. It is the hardened governance kernel every serious local RSI system needs. The rest of the stack (model serving, outer improver, executable gym, hot-swappable harness, bounded weight updates) is built around it so that *every* mutation of code, skills, prompts, harness, evaluators, or (bounded) model weights is forced through the same fail-closed boundary and append-only event trail.
+It is the hardened governance kernel every serious local RSI system needs. Every mutation of code, skills, prompts, harness, evaluators, or (bounded) model weights is forced through the same fail-closed boundary and append-only event trail.
+
+*Related:* [server-os](https://github.com/ANAMIZED/server-os) · [OpenGOS](https://github.com/ANAMIZED/OpenGOS) · [agenticarb](https://github.com/ANAMIZED/agenticarb) · [x402-cloudflare-starter](https://github.com/ANAMIZED/x402-cloudflare-starter)
 
 A senior engineer who has never seen this repository can, using **only** the source code and this `README.md`:
 
@@ -18,9 +20,9 @@ A senior engineer who has never seen this repository can, using **only** the sou
 3. Run a concrete improvement loop under the LRSI gates
 4. Expand under the same invariants
 
-No prior context or tribal knowledge required.
+---
 
-## Quick Start
+## Quick Start (Hero Path)
 
 ```bash
 # Outer stack (this repo) — offline, deterministic
@@ -40,6 +42,8 @@ python scripts/check_phase_event_coverage.py --run-sample --iterations 3
 
 Default mode for the outer stack is **offline / mock** where possible. Point live endpoints at local vLLM/SGLang.
 
+---
+
 ## Core of LRSI Runtime Core (v13.3.0)
 
 - **Phase pipeline** (high-level): Review Mode → Mutation → PreProposalAdversarial → DGM Precheck → Evaluation → Council → Hold Logic → Human Review → Erosion & Human Coupling → Attractor Analysis → Adversarial → DGM Postcheck → Final Gate → Apply/Reject → Memory Consolidation → Post-decision Accounting → Observability → Persistence.
@@ -57,37 +61,37 @@ RTX 5090 (32 GB GDDR7, ~1.79 TB/s, Blackwell Tensor Cores) + RTX 6000-series (Ad
 ## High-Level Architecture for an Agentic OS
 
 ```
-┌─────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │                 LRSI Runtime Core (Governance Kernel)        │
 │  Mutation → PreProposalAdversarial → DGM Precheck → ...     │
 │  → Final Gate → Apply/Reject → Memory Consolidation         │
 │  Event-sourced audit + fail-closed kill-switches + invariants│
-└───────────────────────────┬─────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
                             │
-┌───────────────────────────▼─────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │              Hot-Swappable Harness (Cordis-style)            │
 │  Tools, skills, memory, loops, sandboxes, model adapters    │
 │  as reversible plugins (temporal + spatial composability)   │
-└───────────────────────────┬─────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
                             │
-┌───────────────────────────▼─────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │              Outer RSI / Improver Agent Loop                 │
 │  Observe → Propose bounded mutation (skill/prompt/code/     │
 │  harness/ops) → Ground in ontology/research → Submit to LRSI│
 │  Local LLM (vLLM/SGLang)                                    │
-└───────────────────────────┬─────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
                             │
-┌───────────────────────────▼─────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │         Executable Feedback + Evaluation Gym                 │
 │  Isolated sandboxes, multi-metric scoring, red-team checks, │
 │  OpenMLE-Gym-style tasks, parallel across both GPUs         │
-└───────────────────────────┬─────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
                             │
-┌───────────────────────────▼─────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │      Model / Skill / Operator Evolution (evidence-gated)     │
 │  QLoRA/Unsloth, Skill-RSI loops, OpenMLE operators,         │
 │  checkpoints, operator evolution                            │
-└─────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Concrete Build Roadmap
