@@ -1,0 +1,8 @@
+services:
+  lrsi:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["lrsi", "status"]
