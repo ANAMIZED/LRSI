@@ -1,3 +1,8 @@
+---
+name: governance-audit
+description: Verify mutation paths and event-chain integrity under LRSI gates
+---
+
 # Skill: governance-audit
 
 ## Purpose
