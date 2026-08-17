@@ -3,6 +3,7 @@
 [![CI](https://github.com/ANAMIZED/LRSI/actions/workflows/ci.yml/badge.svg)](https://github.com/ANAMIZED/LRSI/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![MCP](https://img.shields.io/badge/MCP-server-purple.svg)](src/lrsi/mcp/)
 
 **LRSI (Local Recursive Self-Improvement) — Autonomous Agentic Operating System**
 
@@ -22,7 +23,12 @@ No prior context or tribal knowledge required.
 ## Quick Start
 
 ```bash
-# 1. Clone and verify the LRSI Runtime Core (foundation)
+# Outer stack (this repo) — offline, deterministic
+pip install -e ".[dev]"
+bash scripts/verify.sh
+# 16 checks. All must pass.
+
+# Optional: foundation Runtime Core
 git clone https://github.com/marcuszimmermann365/IRSI.git
 cd IRSI
 python -m venv .venv && source .venv/bin/activate
@@ -31,8 +37,6 @@ python runner.py --iterations 3 --storage-path run_log.json --memory-path memory
 python -m pytest -q -rs
 python scripts/check_phase_event_coverage.py --run-sample --iterations 3
 ```
-
-Then return to this repo and follow the phased roadmap below.
 
 Default mode for the outer stack is **offline / mock** where possible. Point live endpoints at local vLLM/SGLang.
 
@@ -154,18 +158,25 @@ This produces a true end-to-end local LRSI system that functions as an Autonomou
 | Surface | Entry |
 |---------|-------|
 | **LRSI Runtime Core** | External: [marcuszimmermann365/IRSI](https://github.com/marcuszimmermann365/IRSI) |
-| Outer improver / harness | `src/lrsi/` (scaffolding) |
-| Skills | `skills/*/SKILL.md` |
+| CLI | `lrsi status` / `lrsi agents …` / `lrsi workflow` / `lrsi mutate` / `lrsi audit` |
+| SDK | `from lrsi.sdk import LRSIClient` |
+| MCP Server | `lrsi-mcp` / `src/lrsi/mcp/` |
+| Multi-agent workflows | improver → evaluator → council under GateEngine |
+| Skills | `skills/*/SKILL.md` (5 packages) |
+| Audit | hash-chained trail + `verify_chain()` |
 | AGENTS.md | Coding-agent contract at repo root |
 | Verify | `bash scripts/verify.sh` |
 
 ## Verify contract
 
 ```bash
+pip install -e ".[dev]"
 bash scripts/verify.sh
 ```
 
-Covers foundation checks, structure, skills, and AGENTS.md. Expand as the outer stack matures.
+Covers structure, skills, gate/audit, multi-agent workflows, SDK, CLI, MCP, and tests. **16 checks. All must pass.**
+
+Unit tests: `pytest -q` (24 cases).
 
 ## Design principles
 
