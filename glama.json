@@ -1,0 +1,8 @@
+{
+  "name": "lrsi",
+  "displayName": "LRSI",
+  "description": "Local Recursive Self-Improvement — sovereign agentic OS with fail-closed governance, event-sourced audit, and MCP tools.",
+  "repository": "https://github.com/ANAMIZED/LRSI",
+  "license": "Apache-2.0",
+  "version": "0.1.0"
+}
