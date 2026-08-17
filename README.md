@@ -11,7 +11,7 @@ Sovereign, closed-loop system on dual Blackwell hardware (RTX 5090 + RTX 6000-se
 
 It is the hardened governance kernel every serious local RSI system needs. Every mutation of code, skills, prompts, harness, evaluators, or (bounded) model weights is forced through the same fail-closed boundary and append-only event trail.
 
-**[Support Agentic OS Kernels ($99)](https://buy.stripe.com/test_3cI6oH74HgS4fFDe27bAs02)** · **[Public Goods Support](https://donate.stripe.com/test_28E8wP60D9pC9hf1flbAs00)**
+**[Support Agentic OS Kernels ($99)](https://buy.stripe.com/bJecN63wObPv6Bf7Zm43S02)** · **[Public Goods Support](https://donate.stripe.com/00w5kE3wOg5L8Jn2F243S00)**
 
 *Related:* [server-os](https://github.com/ANAMIZED/server-os) · [OpenGOS](https://github.com/ANAMIZED/OpenGOS) · [agenticarb](https://github.com/ANAMIZED/agenticarb) · [x402-cloudflare-starter](https://github.com/ANAMIZED/x402-cloudflare-starter)
 
