@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10151D">
+<title>LRSI · Runtime Console</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2310151D'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23E8A33D' stroke-width='2.5' stroke-dasharray='40 17'/%3E%3Crect x='14.5' y='4' width='3' height='9' fill='%2310151D'/%3E%3Crect x='15' y='5' width='2' height='7' fill='%2337C978'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bezel:#10151D;        /* instrument housing */
+  --panel:#171E28;        /* faceplate */
+  --panel-2:#1C2531;      /* raised faceplate */
+  --line:#27313F;         /* engraving lines */
+  --text:#D6DEE9;
+  --dim:#8A96A6;
+  --amber:#E8A33D;        /* HOLD / pending / brand signal */
+  --green:#37C978;        /* PROMOTED / verified */
+  --red:#E5484D;          /* DENIED / fail-closed */
+  --cyan:#4CC3E0;         /* telemetry / live */
+  --amber-dim:#5c451f;
+  --font-d:"Chakra Petch",system-ui,sans-serif;
+  --font-m:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bezel);
+  color:var(--text);
+  font-family:var(--font-d);
+  font-size:15px;
+  line-height:1.45;
+  min-height:100dvh;
+  padding-bottom:calc(64px + env(safe-area-inset-bottom));
+}
+::selection{background:var(--amber-dim);color:#fff}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+a{color:var(--cyan);text-decoration:none}
+
+/* ---------- masthead ---------- */
+header{
+  position:sticky;top:0;z-index:30;
+  background:linear-gradient(var(--bezel) 82%,rgba(16,21,29,.92));
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line);
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+}
+.mast{display:flex;align-items:center;gap:10px;max-width:1060px;margin:0 auto}
+.mark{width:30px;height:30px;flex:none}
+.wordmark{font-weight:700;font-size:19px;letter-spacing:.14em}
+.wordmark small{display:block;font-weight:500;font-size:9.5px;letter-spacing:.22em;color:var(--dim)}
+.mast-spacer{flex:1}
+.badge{
+  font-family:var(--font-m);font-size:10.5px;font-weight:600;letter-spacing:.12em;
+  padding:4px 9px;border-radius:5px;border:1px solid var(--line);color:var(--dim);
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.badge .lamp{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.badge.sim .lamp{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.badge.live{color:var(--cyan);border-color:#1e4b59}
+.badge.live .lamp{background:var(--cyan);box-shadow:0 0 6px var(--cyan);animation:pulse 1.6s infinite}
+#uptime{font-family:var(--font-m);font-size:11px;color:var(--dim);letter-spacing:.06em}
+.term-btn{
+  background:var(--panel);border:1px solid var(--line);border-radius:7px;
+  padding:6px 10px;cursor:pointer;font-family:var(--font-m);font-size:12px;color:var(--amber);
+}
+.term-btn:active{transform:translateY(1px)}
+
+/* desktop nav lives in header */
+nav.desktop{display:none}
+
+/* ---------- ticker ---------- */
+.ticker{
+  border-bottom:1px solid var(--line);background:var(--panel);
+  overflow:hidden;height:26px;display:flex;align-items:center;
+}
+.ticker-inner{
+  display:flex;gap:38px;white-space:nowrap;font-family:var(--font-m);
+  font-size:10.5px;color:var(--dim);padding-left:14px;
+  animation:tick 30s linear infinite;
+}
+.ticker-inner b{color:var(--amber);font-weight:500}
+@keyframes tick{to{transform:translateX(-50%)}}
+
+/* ---------- layout ---------- */
+main{max-width:1060px;margin:0 auto;padding:16px 14px 30px}
+section.tab{display:none}
+section.tab.active{display:block;animation:fadein .18s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+.eyebrow{
+  font-family:var(--font-m);font-size:10px;font-weight:600;letter-spacing:.24em;
+  color:var(--dim);text-transform:uppercase;margin:22px 0 8px;
+  display:flex;align-items:center;gap:10px;
+}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--line)}
+.eyebrow:first-child{margin-top:0}
+
+/* ---------- annunciator tiles ---------- */
+.annun{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.tile{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:10px 12px;min-height:64px;position:relative;overflow:hidden;
+}
+.tile .t-label{font-size:10px;letter-spacing:.18em;color:var(--dim);font-weight:600}
+.tile .t-value{font-family:var(--font-m);font-size:19px;font-weight:600;margin-top:4px}
+.tile .t-sub{font-family:var(--font-m);font-size:10px;color:var(--dim);margin-top:2px}
+.tile::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line);
+}
+.tile.ok::before{background:var(--green)}
+.tile.hold::before{background:var(--amber)}
+.tile.fail::before{background:var(--red)}
+.tile.tele::before{background:var(--cyan)}
+.tile.ok .t-value{color:var(--green)}
+.tile.hold .t-value{color:var(--amber)}
+.tile.fail .t-value{color:var(--red)}
+.tile.tele .t-value{color:var(--cyan)}
+
+/* ---------- panels / cards ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.panel + .panel{margin-top:10px}
+.kv{display:flex;justify-content:space-between;gap:12px;font-family:var(--font-m);font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.kv:last-child{border-bottom:none}
+.kv span:first-child{color:var(--dim)}
+.chart{width:100%;height:88px;display:block}
+.chart-title{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.chart-title b{font-size:13px;letter-spacing:.06em}
+.chart-title span{font-family:var(--font-m);font-size:11px;color:var(--dim)}
+
+/* ---------- forms ---------- */
+label.f{display:block;font-size:10.5px;letter-spacing:.14em;color:var(--dim);font-weight:600;margin:10px 0 4px;text-transform:uppercase}
+input[type=text],input[type=number],select,textarea{
+  width:100%;background:var(--bezel);border:1px solid var(--line);border-radius:7px;
+  padding:10px 11px;font-family:var(--font-m);font-size:16px;color:var(--text);
+  min-height:44px;
+}
+textarea{resize:vertical;min-height:60px}
+input::placeholder,textarea::placeholder{color:#5b6675}
+.row{display:flex;gap:8px}
+.row > *{flex:1;min-width:0}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--amber);color:#1a1305;border:none;border-radius:8px;
+  font-weight:700;font-size:13px;letter-spacing:.08em;padding:12px 16px;
+  min-height:46px;cursor:pointer;width:100%;margin-top:12px;text-transform:uppercase;
+}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:transparent;color:var(--amber);border:1px solid var(--amber-dim);width:auto}
+.btn.small{min-height:38px;padding:8px 12px;font-size:11.5px;width:auto;margin-top:0}
+.btn.stop{background:var(--red);color:#fff}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* ---------- agents ---------- */
+.agent{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-top:8px}
+.agent-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.agent-top b{font-size:14px}
+.chip{
+  font-family:var(--font-m);font-size:9.5px;font-weight:600;letter-spacing:.1em;
+  padding:2.5px 7px;border-radius:4px;border:1px solid var(--line);color:var(--dim);text-transform:uppercase;
+}
+.chip.improver{color:var(--amber);border-color:var(--amber-dim)}
+.chip.evaluator{color:var(--cyan);border-color:#1e4b59}
+.chip.council{color:var(--green);border-color:#1d5637}
+.chip.st-idle{color:var(--dim)}
+.chip.st-running{color:var(--cyan);border-color:#1e4b59}
+.chip.st-halted{color:var(--red);border-color:#5a2426}
+.agent .aid{font-family:var(--font-m);font-size:10px;color:var(--dim)}
+.budget{height:5px;background:var(--bezel);border-radius:3px;margin-top:9px;overflow:hidden}
+.budget i{display:block;height:100%;background:var(--green);border-radius:3px;transition:width .4s}
+.budget i.warn{background:var(--amber)}
+.budget i.out{background:var(--red)}
+.agent .spend{font-family:var(--font-m);font-size:10.5px;color:var(--dim);margin-top:5px;display:flex;justify-content:space-between}
+.agent .task-row{display:flex;gap:6px;margin-top:9px}
+.agent .task-row input{min-height:40px;flex:1}
+
+/* ---------- gate (signature) ---------- */
+.gate-stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 12px 14px;overflow:hidden}
+.interlocks{display:flex;justify-content:center;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.ilock{
+  display:flex;align-items:center;gap:6px;font-family:var(--font-m);
+  font-size:9.5px;font-weight:600;letter-spacing:.12em;color:var(--dim);
+  border:1px solid var(--line);border-radius:5px;padding:4px 8px;background:var(--bezel);
+}
+.ilock .lamp{width:8px;height:8px;border-radius:50%;background:#38414e;transition:all .3s}
+.ilock.armed .lamp{background:var(--amber);box-shadow:0 0 7px var(--amber)}
+.ilock.latched{color:var(--green);border-color:#1d5637}
+.ilock.latched .lamp{background:var(--green);box-shadow:0 0 7px var(--green)}
+.ilock.tripped{color:var(--red);border-color:#5a2426}
+.ilock.tripped .lamp{background:var(--red);box-shadow:0 0 7px var(--red)}
+.track{position:relative;height:86px}
+.rail{position:absolute;left:4%;right:4%;top:50%;height:2px;background:repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 14px)}
+.endcap{
+  position:absolute;top:50%;transform:translateY(-50%);
+  font-family:var(--font-m);font-size:9px;letter-spacing:.14em;color:var(--dim);
+  border:1px dashed var(--line);border-radius:6px;padding:6px 7px;background:var(--bezel);
+}
+.endcap.in{left:4%}
+.endcap.out{right:4%;text-align:right}
+.endcap.out.lit{color:var(--green);border-color:#1d5637;border-style:solid}
+.gate-doors{
+  position:absolute;left:50%;top:8px;bottom:8px;width:46px;transform:translateX(-50%);
+  border:1px solid var(--amber-dim);border-radius:7px;background:var(--bezel);overflow:hidden;
+}
+.door{position:absolute;left:0;right:0;height:50%;background:linear-gradient(180deg,#2a3341,#1d2530);transition:transform .5s cubic-bezier(.6,0,.3,1)}
+.door.top{top:0;border-bottom:2px solid var(--amber)}
+.door.bot{bottom:0;border-top:2px solid var(--amber)}
+.gate-doors.open .door.top{transform:translateY(-100%)}
+.gate-doors.open .door.bot{transform:translateY(100%)}
+.gate-doors.deny .door{border-color:var(--red)}
+.gate-doors.deny{animation:shake .35s;border-color:var(--red)}
+@keyframes shake{25%{transform:translateX(calc(-50% - 4px))}75%{transform:translateX(calc(-50% + 4px))}}
+.gate-label{
+  position:absolute;left:50%;transform:translateX(-50%);bottom:-2px;
+  font-family:var(--font-m);font-size:8.5px;letter-spacing:.22em;color:var(--amber);
+}
+.pod{
+  position:absolute;top:50%;left:6%;width:26px;height:26px;margin-top:-13px;
+  border-radius:7px;background:var(--amber);color:#1a1305;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-m);font-size:9px;font-weight:700;
+  transition:left 1.1s cubic-bezier(.45,0,.25,1),background .3s,opacity .4s;
+  box-shadow:0 0 12px rgba(232,163,61,.35);opacity:0;
+}
+.pod.show{opacity:1}
+.pod.pass{background:var(--green);box-shadow:0 0 12px rgba(55,201,120,.4)}
+.pod.deny{background:var(--red);color:#fff;box-shadow:0 0 12px rgba(229,72,77,.4)}
+.verdict{
+  margin-top:12px;font-family:var(--font-m);font-size:11.5px;
+  border-left:3px solid var(--line);padding:7px 10px;background:var(--bezel);border-radius:0 6px 6px 0;
+  color:var(--dim);min-height:34px;
+}
+.verdict.pass{border-color:var(--green);color:var(--green)}
+.verdict.deny{border-color:var(--red);color:var(--red)}
+.evwrap{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ev-chip{
+  font-family:var(--font-m);font-size:10px;color:var(--green);
+  border:1px solid #1d5637;border-radius:5px;padding:3.5px 8px;background:var(--bezel);
+  display:inline-flex;gap:7px;align-items:center;
+}
+.ev-chip button{background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0 2px}
+
+/* ---------- loop ring ---------- */
+.ring-wrap{display:flex;justify-content:center;padding:6px 0 2px}
+.ring{width:min(300px,84vw);height:auto}
+.ring text{font-family:var(--font-m);letter-spacing:.1em}
+.rnode circle{fill:var(--panel-2);stroke:var(--line);stroke-width:1.5;transition:all .3s}
+.rnode text{fill:var(--dim);font-size:9px;font-weight:600}
+.rnode.active circle{stroke-width:2.5}
+.rnode.active.n-improver circle{stroke:var(--amber);filter:drop-shadow(0 0 6px rgba(232,163,61,.6))}
+.rnode.active.n-evaluator circle{stroke:var(--cyan);filter:drop-shadow(0 0 6px rgba(76,195,224,.6))}
+.rnode.active.n-council circle{stroke:var(--green);filter:drop-shadow(0 0 6px rgba(55,201,120,.6))}
+.rnode.active text{fill:var(--text)}
+.ring .orbit{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:4 6}
+.ring .core-t{fill:var(--amber);font-size:10px;font-weight:700}
+.ring .core-s{fill:var(--dim);font-size:7.5px}
+.cyclog{font-family:var(--font-m);font-size:11px;max-height:230px;overflow-y:auto;margin-top:4px}
+.cyclog div{padding:4px 0;border-bottom:1px dashed var(--line);color:var(--dim)}
+.cyclog b{color:var(--text);font-weight:600}
+.cyclog .ok{color:var(--green)}.cyclog .no{color:var(--red)}.cyclog .am{color:var(--amber)}.cyclog .cy{color:var(--cyan)}
+
+/* ---------- trail ---------- */
+.chain{position:relative;margin-top:6px}
+.link{
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:9px 11px;margin-top:8px;position:relative;font-family:var(--font-m);
+}
+.link::before{
+  content:"";position:absolute;left:18px;top:-9px;height:9px;width:2px;background:var(--line);
+}
+.link:first-child::before{display:none}
+.link .l-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.link .seq{font-size:10px;color:var(--amber);font-weight:600}
+.link .etype{font-size:10.5px;font-weight:600;letter-spacing:.06em}
+.link .ets{font-size:9.5px;color:var(--dim);margin-left:auto}
+.link .hashes{font-size:9.5px;color:var(--dim);margin-top:4px;word-break:break-all}
+.link .hashes b{color:var(--cyan);font-weight:500}
+.link.verified{border-color:#1d5637}
+.link.verified .seq{color:var(--green)}
+.link.broken{border-color:var(--red)}
+.trail-actions{display:flex;gap:8px;margin-top:12px}
+
+/* ---------- terminal drawer ---------- */
+#termdrawer{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  background:#0B0F15;border-top:1px solid var(--amber-dim);
+  transform:translateY(102%);transition:transform .28s cubic-bezier(.5,0,.3,1);
+  height:min(62dvh,520px);display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:0 -12px 40px rgba(0,0,0,.5);
+}
+#termdrawer.open{transform:translateY(0)}
+.term-head{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.term-head b{font-family:var(--font-m);font-size:11px;letter-spacing:.18em;color:var(--amber)}
+.term-head button{margin-left:auto;background:none;border:1px solid var(--line);border-radius:6px;color:var(--dim);padding:4px 10px;cursor:pointer;font-family:var(--font-m);font-size:11px}
+#termout{
+  flex:1;overflow-y:auto;padding:12px 14px;font-family:var(--font-m);font-size:12px;line-height:1.65;
+  overscroll-behavior:contain;
+}
+#termout .in{color:var(--amber)}
+#termout .err{color:var(--red)}
+#termout .ok{color:var(--green)}
+#termout .dim{color:var(--dim)}
+#termout .cy{color:var(--cyan)}
+#termout pre{white-space:pre-wrap;word-break:break-word;font:inherit}
+.term-in{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
+.term-in .ps1{font-family:var(--font-m);color:var(--amber);align-self:center;font-size:13px;font-weight:600}
+.term-in input{flex:1;background:var(--bezel);border:1px solid var(--line);border-radius:7px;min-height:44px}
+
+/* ---------- bottom nav ---------- */
+nav.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:rgba(13,17,24,.96);backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+nav.tabbar button{
+  background:none;border:none;color:var(--dim);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-family:var(--font-m);font-size:8.5px;font-weight:600;letter-spacing:.1em;
+  padding:5px 5px;min-width:44px;border-radius:8px;
+}
+nav.tabbar button svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+nav.tabbar button.active{color:var(--amber)}
+nav.tabbar button.active svg{filter:drop-shadow(0 0 5px rgba(232,163,61,.5))}
+
+.note{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.5}
+.note code{font-family:var(--font-m);font-size:11px;color:var(--amber)}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:18px 14px;text-align:center;color:var(--dim);font-size:12.5px;margin-top:8px}
+.empty code{font-family:var(--font-m);color:var(--amber)}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- wiki constellation ---------- */
+.wikistage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+#wikicanvas{display:block;width:100%;aspect-ratio:1/1.02;max-height:440px;touch-action:none;cursor:grab}
+#wikicanvas:active{cursor:grabbing}
+.wk-legend{
+  position:absolute;left:8px;bottom:8px;display:flex;flex-wrap:wrap;gap:5px 9px;
+  font-family:var(--font-m);font-size:8.5px;letter-spacing:.08em;color:var(--dim);
+  pointer-events:none;max-width:70%;
+}
+.wk-legend i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:-1px}
+.wk-hud{
+  position:absolute;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;align-items:flex-end;
+}
+.wk-hud button{
+  background:rgba(13,17,24,.8);border:1px solid var(--line);border-radius:6px;color:var(--dim);
+  font-family:var(--font-m);font-size:9px;font-weight:600;letter-spacing:.1em;
+  padding:6px 9px;cursor:pointer;min-height:30px;
+}
+.wk-hud button[aria-pressed="true"]{color:var(--amber);border-color:var(--amber-dim)}
+.wk-tools{display:flex;gap:8px;margin-top:10px}
+.wk-tools input{flex:1}
+#wk-stats{font-family:var(--font-m);font-size:10.5px;color:var(--dim);margin-top:8px;letter-spacing:.04em}
+#wk-stats b{color:var(--amber);font-weight:600}
+.wk-note{margin-top:10px}
+.wk-note .wn-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wk-note .wn-head b{font-size:15px}
+.wk-note .wn-meta{font-family:var(--font-m);font-size:9.5px;color:var(--dim);margin-left:auto}
+.wk-body{font-size:13.5px;line-height:1.6;color:var(--text);margin-top:8px}
+a.wl{
+  color:var(--cyan);font-family:var(--font-m);font-size:12.5px;
+  border-bottom:1px dashed #1e4b59;cursor:pointer;
+}
+a.wl.missing{color:var(--dim);border-bottom-color:var(--line)}
+.backlinks{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.backlinks .chip{cursor:pointer}
+.chip.k-core{color:var(--amber);border-color:var(--amber-dim)}
+.chip.k-skill{color:var(--green);border-color:#1d5637}
+.chip.k-surface,.chip.k-agent,.chip.k-workflow{color:var(--cyan);border-color:#1e4b59}
+.chip.k-mutation{color:var(--green);border-color:#1d5637}
+.chip.k-denial{color:var(--red);border-color:#5a2426}
+.chip.k-evidence{color:#2c9a63;border-color:#1d5637}
+.chip.k-domain{color:var(--amber);border-color:var(--amber-dim)}
+.chip.k-stub,.chip.k-note{color:var(--dim)}
+@media (min-width:900px){
+  #wikicanvas{aspect-ratio:16/9;max-height:520px}
+}
+
+/* ---------- desktop ---------- */
+@media (min-width:900px){
+  body{padding-bottom:40px}
+  nav.tabbar{display:none}
+  nav.desktop{display:flex;gap:4px;margin-left:18px}
+  nav.desktop button{
+    background:none;border:none;color:var(--dim);cursor:pointer;
+    font-family:var(--font-m);font-size:11px;font-weight:600;letter-spacing:.14em;
+    padding:8px 13px;border-radius:7px;
+  }
+  nav.desktop button.active{color:var(--amber);background:var(--panel)}
+  .annun{grid-template-columns:repeat(4,1fr)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+  #termdrawer{left:auto;right:20px;bottom:20px;width:560px;border:1px solid var(--amber-dim);border-radius:12px;height:480px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mast">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+      <circle cx="16" cy="16" r="10.5" fill="none" stroke="#E8A33D" stroke-width="2.6" stroke-dasharray="47 19"/>
+      <rect x="14" y="2.5" width="4" height="11" fill="#10151D"/>
+      <rect x="15" y="4" width="2" height="8" fill="#37C978"/>
+      <path d="M16 25.5l-2.6-2.6M16 25.5l2.6-2.6" stroke="#E8A33D" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="wordmark">LRSI<small>RUNTIME CONSOLE</small></div>
+    <nav class="desktop" aria-label="Sections">
+      <button data-tab="status" class="active">STATUS</button>
+      <button data-tab="agents">AGENTS</button>
+      <button data-tab="gate">GATE</button>
+      <button data-tab="loop">LOOP</button>
+      <button data-tab="trail">TRAIL</button>
+      <button data-tab="wiki">WIKI</button>
+    </nav>
+    <div class="mast-spacer"></div>
+    <span id="uptime" title="Kernel uptime">00:00:00</span>
+    <span id="modebadge" class="badge sim"><i class="lamp"></i>SIM</span>
+    <button class="term-btn" id="termtoggle" aria-label="Open terminal">&gt;_</button>
+  </div>
+</header>
+
+<div class="ticker" aria-hidden="true"><div class="ticker-inner" id="ticker"></div></div>
+
+<main>
+
+<!-- ================= STATUS ================= -->
+<section class="tab active" id="tab-status">
+  <div class="eyebrow">Kernel · Annunciator</div>
+  <div class="annun">
+    <div class="tile ok" id="an-kernel"><div class="t-label">KERNEL</div><div class="t-value">OK</div><div class="t-sub" id="an-kernel-sub">event-sourced</div></div>
+    <div class="tile hold" id="an-boundary"><div class="t-label">BOUNDARY</div><div class="t-value" id="an-boundary-v">CLOSED</div><div class="t-sub">fail-closed default</div></div>
+    <div class="tile ok" id="an-chain"><div class="t-label">CHAIN</div><div class="t-value" id="an-chain-v">—</div><div class="t-sub" id="an-chain-sub">sha-256 linked</div></div>
+    <div class="tile tele" id="an-events"><div class="t-label">EVENTS</div><div class="t-value" id="an-events-v">0</div><div class="t-sub">append-only</div></div>
+    <div class="tile ok" id="an-prom"><div class="t-label">PROMOTED</div><div class="t-value" id="an-prom-v">0</div><div class="t-sub">evidence-gated</div></div>
+    <div class="tile fail" id="an-den"><div class="t-label">DENIED</div><div class="t-value" id="an-den-v">0</div><div class="t-sub">gate holds</div></div>
+    <div class="tile hold" id="an-spend"><div class="t-label">SPEND</div><div class="t-value" id="an-spend-v">$0.0000</div><div class="t-sub">all agents</div></div>
+    <div class="tile tele" id="an-agents"><div class="t-label">AGENTS</div><div class="t-value" id="an-agents-v">0</div><div class="t-sub" id="an-agents-sub">0 running</div></div>
+  </div>
+
+  <div class="eyebrow">Capability Index</div>
+  <div class="panel">
+    <div class="chart-title"><b id="cap-now">1.000</b><span>promotions compound the curve</span></div>
+    <svg class="chart" id="capchart" viewBox="0 0 320 88" preserveAspectRatio="none" role="img" aria-label="Capability index over time"></svg>
+  </div>
+
+  <div class="eyebrow">Live API Uplink</div>
+  <div class="panel">
+    <div class="row">
+      <input type="text" id="apibase" placeholder="http://localhost:8080" value="http://localhost:8080" aria-label="API base URL">
+      <button class="btn small ghost" id="probe" style="flex:0 0 auto">Probe /health</button>
+    </div>
+    <div class="note" id="probemsg">Console runs on the embedded SIM kernel. Probe a running <code>lrsi-api</code> instance to switch the badge to LIVE and pull real health + metrics.</div>
+    <div id="livekv"></div>
+  </div>
+</section>
+
+<!-- ================= AGENTS ================= -->
+<section class="tab" id="tab-agents">
+  <div class="eyebrow">Agent Processes</div>
+  <div id="agentlist"></div>
+
+  <div class="eyebrow">Create Agent</div>
+  <div class="panel">
+    <label class="f" for="ag-name">Name</label>
+    <input type="text" id="ag-name" placeholder="probe-7">
+    <label class="f" for="ag-intent">Intent</label>
+    <input type="text" id="ag-intent" placeholder="reduce eval latency on kernel path">
+    <div class="row">
+      <div>
+        <label class="f" for="ag-role">Role</label>
+        <select id="ag-role">
+          <option value="generic">generic</option>
+          <option value="improver">improver</option>
+          <option value="evaluator">evaluator</option>
+          <option value="council">council</option>
+        </select>
+      </div>
+      <div>
+        <label class="f" for="ag-budget">Budget USD</label>
+        <input type="number" id="ag-budget" value="0.50" step="0.05" min="0.05">
+      </div>
+    </div>
+    <label class="f" for="ag-model">Model</label>
+    <input type="text" id="ag-model" value="mock-local">
+    <button class="btn" id="ag-create">Create agent</button>
+  </div>
+</section>
+
+<!-- ================= GATE ================= -->
+<section class="tab" id="tab-gate">
+  <div class="eyebrow">The LRSI Boundary</div>
+  <div class="gate-stage">
+    <div class="interlocks">
+      <span class="ilock" id="il-ev"><i class="lamp"></i>EVIDENCE</span>
+      <span class="ilock" id="il-sc"><i class="lamp"></i>EVALUATOR</span>
+      <span class="ilock" id="il-cn"><i class="lamp"></i>COUNCIL 0/3</span>
+    </div>
+    <div class="track">
+      <span class="endcap in">PROPOSAL</span>
+      <div class="rail"></div>
+      <div class="gate-doors" id="doors">
+        <div class="door top"></div><div class="door bot"></div>
+      </div>
+      <div class="gate-label">FAIL-CLOSED</div>
+      <div class="pod" id="pod">Δ</div>
+      <span class="endcap out" id="cap-out">PROMOTED</span>
+    </div>
+    <div class="verdict" id="verdict">Boundary is closed. Every mutation passes through it, or not at all.</div>
+  </div>
+
+  <div class="eyebrow">Propose Mutation</div>
+  <div class="panel">
+    <div class="row">
+      <div>
+        <label class="f" for="mu-kind">Kind</label>
+        <select id="mu-kind">
+          <option value="skill">skill</option>
+          <option value="policy">policy</option>
+          <option value="workflow">workflow</option>
+          <option value="kernel">kernel</option>
+        </select>
+      </div>
+      <div>
+        <label class="f" for="mu-target">Target</label>
+        <input type="text" id="mu-target" placeholder="skills/planner">
+      </div>
+    </div>
+    <label class="f" for="mu-desc">Description</label>
+    <textarea id="mu-desc" placeholder="cache tool schemas between cycles"></textarea>
+    <label class="f">Evidence</label>
+    <div class="evwrap" id="evchips"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn small ghost" id="ev-gen">Run verification probe</button>
+      <button class="btn small ghost" id="ev-clear">Clear evidence</button>
+    </div>
+    <div class="note">No evidence, no passage — the gate denies by default. Probes append <code>EVIDENCE_VERIFIED</code> events to the trail; more independent evidence lifts the evaluator score.</div>
+    <button class="btn" id="mu-send">Submit to gate</button>
+  </div>
+
+  <div class="eyebrow">Recent Verdicts</div>
+  <div id="verdictlog"><div class="empty">No mutations judged yet. Submit one above or run <code>lrsi mutate</code> in the terminal.</div></div>
+</section>
+
+<!-- ================= LOOP ================= -->
+<section class="tab" id="tab-loop">
+  <div class="eyebrow">Recursive Loop · improver → evaluator → council</div>
+  <div class="panel">
+    <div class="ring-wrap">
+      <svg class="ring" id="ringsvg" viewBox="0 0 240 220">
+        <circle class="orbit" cx="120" cy="112" r="72"/>
+        <g class="rnode n-improver" id="rn-improver">
+          <circle cx="120" cy="40" r="26"/>
+          <text x="120" y="37" text-anchor="middle">IMPROVER</text>
+          <text x="120" y="48" text-anchor="middle" style="font-size:7px">proposes Δ</text>
+        </g>
+        <g class="rnode n-evaluator" id="rn-evaluator">
+          <circle cx="185" cy="150" r="26"/>
+          <text x="185" y="147" text-anchor="middle">EVALUATOR</text>
+          <text x="185" y="158" text-anchor="middle" style="font-size:7px">scores</text>
+        </g>
+        <g class="rnode n-council" id="rn-council">
+          <circle cx="55" cy="150" r="26"/>
+          <text x="55" y="147" text-anchor="middle">COUNCIL</text>
+          <text x="55" y="158" text-anchor="middle" style="font-size:7px">votes 2/3</text>
+        </g>
+        <text class="core-t" x="120" y="110" text-anchor="middle">LRSI CORE</text>
+        <text class="core-s" x="120" y="121" text-anchor="middle" id="corecycle">cycle —</text>
+        <path d="M146 49 A72 72 0 0 1 190 124" fill="none" stroke="#27313F" stroke-width="1.5" marker-end="url(#arr)"/>
+        <path d="M160 172 A72 72 0 0 1 80 172" fill="none" stroke="#27313F" stroke-width="1.5" marker-end="url(#arr)"/>
+        <path d="M50 124 A72 72 0 0 1 94 49" fill="none" stroke="#27313F" stroke-width="1.5" marker-end="url(#arr)"/>
+        <defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L8 4L0 8z" fill="#4a5666"/></marker></defs>
+      </svg>
+    </div>
+    <label class="f" for="wf-goal">Workflow goal</label>
+    <input type="text" id="wf-goal" placeholder="harden the mutation gate against low-evidence deltas">
+    <div class="row">
+      <div><label class="f" for="wf-cycles">Cycles</label><input type="number" id="wf-cycles" value="6" min="1" max="30"></div>
+      <div><label class="f" for="wf-budget">Budget USD</label><input type="number" id="wf-budget" value="1.00" step="0.10" min="0.10"></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="wf-start">Run workflow</button>
+      <button class="btn stop" id="wf-stop" disabled style="flex:0 0 34%">Halt</button>
+    </div>
+    <div class="note">Budget exhaustion halts the loop — the kernel fails closed on funds, not open.</div>
+  </div>
+
+  <div class="eyebrow">Cycle Log</div>
+  <div class="panel"><div class="cyclog" id="cyclog"><div>Loop idle. Cycle events land here and on the trail.</div></div></div>
+</section>
+
+<!-- ================= TRAIL ================= -->
+<section class="tab" id="tab-trail">
+  <div class="eyebrow">Event Trail · Append-Only · Hash-Chained</div>
+  <div class="trail-actions">
+    <button class="btn small ghost" id="verifychain">Verify chain</button>
+    <button class="btn small ghost" id="exportchain">Export JSON</button>
+  </div>
+  <div class="note" id="trailmsg">Each entry carries the SHA-256 of its predecessor. Verification re-hashes every link in order; one altered byte breaks everything after it.</div>
+  <div class="chain" id="chain"></div>
+</section>
+
+<!-- ================= WIKI ================= -->
+<section class="tab" id="tab-wiki">
+  <div class="eyebrow">Knowledge Constellation · Autonomous</div>
+  <div class="wikistage">
+    <canvas id="wikicanvas" aria-label="3D knowledge graph. Drag to rotate, pinch to zoom, tap a node to open its note."></canvas>
+    <div class="wk-hud">
+      <button id="wk-rot" aria-pressed="true">ROTATE</button>
+      <button id="wk-scribe" aria-pressed="true">SCRIBE</button>
+    </div>
+    <div class="wk-legend">
+      <span><i style="background:#E8A33D"></i>CORE</span>
+      <span><i style="background:#37C978"></i>SKILL·Δ</span>
+      <span><i style="background:#4CC3E0"></i>AGENT·SURFACE</span>
+      <span><i style="background:#E5484D"></i>DENIED</span>
+      <span><i style="background:#2c9a63"></i>EVIDENCE</span>
+      <span><i style="background:#5b6675"></i>STUB</span>
+    </div>
+  </div>
+  <div class="wk-tools">
+    <input type="text" id="wk-search" placeholder="search the constellation" aria-label="Search notes">
+  </div>
+  <div id="wk-stats">—</div>
+  <div class="note">Drag rotates · pinch or scroll zooms · tap opens a note. With SCRIBE on, the kernel writes this wiki itself: promoted mutations, agents and workflows arrive as new stars, linked to what they touched.</div>
+
+  <div class="panel wk-note" id="wk-note"></div>
+
+  <div class="eyebrow">Add Note</div>
+  <div class="panel">
+    <label class="f" for="wk-title">Title</label>
+    <input type="text" id="wk-title" placeholder="Gate Tuning Journal">
+    <label class="f" for="wk-body">Body — use [[wikilinks]]</label>
+    <textarea id="wk-body" placeholder="Raising the score gate after [[Council]] near-misses on [[Fail-Closed Boundary]]."></textarea>
+    <button class="btn" id="wk-add">Add to constellation</button>
+  </div>
+</section>
+
+</main>
+
+<!-- ================= TERMINAL ================= -->
+<div id="termdrawer" role="dialog" aria-label="LRSI terminal">
+  <div class="term-head"><b>LRSI SHELL</b><button id="termclose">close</button></div>
+  <div id="termout"></div>
+  <div class="term-in">
+    <span class="ps1">lrsi ▸</span>
+    <input type="text" id="termin" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Terminal command" placeholder="try: help">
+  </div>
+</div>
+
+<nav class="tabbar" aria-label="Sections">
+  <button data-tab="status" class="active" aria-label="Status">
+    <svg viewBox="0 0 24 24"><path d="M3 13h4l2-6 4 12 2-6h6"/></svg>STATUS</button>
+  <button data-tab="agents" aria-label="Agents">
+    <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5"/><circle cx="17.5" cy="9.5" r="2.4"/><path d="M15.5 14.6c2.6.2 4.4 1.7 5 4.4"/></svg>AGENTS</button>
+  <button data-tab="gate" aria-label="Gate">
+    <svg viewBox="0 0 24 24"><path d="M2.5 12h6.5M15 12h6.5"/><rect x="9.5" y="4" width="5" height="16" rx="1.4"/><path d="M12 8.5v7"/></svg>GATE</button>
+  <button data-tab="loop" aria-label="Loop">
+    <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-3-6.2"/><path d="M17.5 2.5v3.6h3.6"/></svg>LOOP</button>
+  <button data-tab="trail" aria-label="Trail">
+    <svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="5" rx="1.5"/><rect x="4" y="10" width="16" height="5" rx="1.5"/><rect x="4" y="16.5" width="16" height="5" rx="1.5"/><path d="M8 8.5v1.5M8 15v1.5"/></svg>TRAIL</button>
+  <button data-tab="wiki" aria-label="Wiki constellation">
+    <svg viewBox="0 0 24 24"><circle cx="6" cy="17" r="2.3"/><circle cx="12" cy="5.5" r="2.3"/><circle cx="18.5" cy="14" r="2.3"/><path d="M7.8 15.3l3.2-7.6M13.8 7l3.5 5.1M8.3 16.6l7.9-1.9"/></svg>WIKI</button>
+</nav>
+<script>
+/* =============================================================
+   LRSI Runtime Console — embedded SIM kernel
+   Event-sourced · hash-chained · fail-closed by construction
+   ============================================================= */
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const rnd = (a,b) => a + Math.random()*(b-a);
+const money = v => "$" + v.toFixed(4);
+const now = () => new Date().toISOString().replace("T"," ").slice(0,19);
+
+/* ---------- hashing (real SHA-256, FNV fallback) ---------- */
+async function sha256(str){
+  try{
+    if (crypto && crypto.subtle){
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+      return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+  }catch(e){}
+  let h = 0x811c9dc5, out = "";
+  for (let r=0; r<8; r++){
+    for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i)+r; h = Math.imul(h,0x01000193)>>>0; }
+    out += h.toString(16).padStart(8,"0");
+  }
+  return out;
+}
+
+/* ---------- kernel state ---------- */
+const K = {
+  version: "0.4.1-sim",
+  bootAt: Date.now(),
+  seq: 0,
+  events: [],            // append-only trail
+  agents: [],
+  mutations: [],
+  capability: [1.0],
+  promoted: 0, denied: 0,
+  spendTotal: 0,
+  chainOk: null,
+  live: false,
+  wf: { running:false, halt:false },
+  tail: Promise.resolve()
+};
+const uid = p => p + "-" + Math.random().toString(36).slice(2,7);
+
+/* serialized append keeps the chain ordered even with async hashing */
+function appendEvent(type, data){
+  K.tail = K.tail.then(async () => {
+    const seq = K.seq++;
+    const ts = now();
+    const prev = K.events.length ? K.events[K.events.length-1].hash : "GENESIS";
+    const hash = await sha256(seq + "|" + ts + "|" + type + "|" + JSON.stringify(data) + "|" + prev);
+    const ev = { seq, ts, type, data, prev, hash };
+    K.events.push(ev);
+    K.chainOk = null;
+    onTrailChanged(ev);
+    return ev;
+  });
+  return K.tail;
+}
+
+/* ---------- charging & agents ---------- */
+function charge(agent, amt, why){
+  if (!agent) { K.spendTotal += amt; return true; }
+  if (agent.spent + amt > agent.budget){
+    agent.status = "halted";
+    appendEvent("AGENT_BUDGET_HALT", { agent: agent.id, why, budget: agent.budget });
+    renderAgents(); refreshTiles();
+    return false;                       // fail closed on funds
+  }
+  agent.spent += amt; K.spendTotal += amt;
+  return true;
+}
+function createAgent({name, intent, role="generic", budget=0.5, model="mock-local"}){
+  const a = { id: uid("ag"), name, intent, role, status:"idle",
+              budget:+budget, spent:0, model, tasks:0 };
+  K.agents.push(a);
+  appendEvent("AGENT_CREATED", { id:a.id, name, role, budget:a.budget, model });
+  renderAgents(); refreshTiles();
+  return a;
+}
+const TASK_OUT = [
+  "trace captured, 3 hot paths flagged",
+  "schema cache warmed, hit-rate 92%",
+  "goal decomposed into 4 bounded steps",
+  "eval batch replayed, variance within band",
+  "no regression across 128 checks"
+];
+async function runTask(agent, goal){
+  if (agent.status === "halted") return { ok:false, error:"agent halted (budget exhausted)" };
+  agent.status = "running"; renderAgents();
+  const cost = rnd(0.004, 0.02);
+  appendEvent("TASK_SUBMITTED", { agent:agent.id, goal });
+  await sleep(REDUCED ? 0 : rnd(500,900));
+  if (!charge(agent, cost, "task")) return { ok:false, error:"budget gate closed mid-task" };
+  agent.tasks++; agent.status = "idle";
+  const result = TASK_OUT[Math.floor(Math.random()*TASK_OUT.length)];
+  appendEvent("TASK_COMPLETED", { agent:agent.id, goal, result, cost:+cost.toFixed(4) });
+  renderAgents(); refreshTiles();
+  return { ok:true, result, cost };
+}
+
+/* ---------- evidence ---------- */
+async function runEvidenceProbe(source){
+  const cost = rnd(0.002, 0.006);
+  charge(null, cost, "probe");
+  await appendEvent("EVIDENCE_VERIFIED", { source, checks: Math.floor(rnd(6,40)), cost:+cost.toFixed(4) });
+  const ev = K.events[K.events.length-1];
+  return "ev-" + ev.seq;
+}
+const evidenceExists = id => {
+  const m = /^ev-(\d+)$/.exec(id||"");
+  if (!m) return false;
+  const e = K.events[+m[1]];
+  return !!e && e.type === "EVIDENCE_VERIFIED";
+};
+
+/* ---------- the gate ---------- */
+function judgeMutation({kind, target, desc, evidence}){
+  const mut = { id: uid("mu"), kind, target, desc, evidence:[...evidence], ts: now() };
+  appendEvent("MUTATION_PROPOSED", { id:mut.id, kind, target, desc, evidence:mut.evidence });
+  const valid = mut.evidence.filter(evidenceExists);
+  mut.validEvidence = valid;
+  appendEvent("GATE_EVIDENCE_CHECK", { id:mut.id, supplied:mut.evidence.length, verified:valid.length });
+
+  if (valid.length === 0){
+    mut.verdict = "DENIED"; mut.reason = "NO_VERIFIED_EVIDENCE";
+  } else {
+    mut.score = Math.min(0.99, Math.max(0.05, 0.34 + 0.17*valid.length + rnd(-0.12,0.12)));
+    appendEvent("EVALUATOR_SCORE", { id:mut.id, score:+mut.score.toFixed(3), threshold:0.6 });
+    if (mut.score < 0.6){
+      mut.verdict = "DENIED"; mut.reason = "SCORE_BELOW_GATE";
+    } else {
+      mut.votes = [0,1,2].map(() => Math.random() < mut.score*0.95 + 0.03);
+      const yes = mut.votes.filter(Boolean).length;
+      appendEvent("COUNCIL_VOTE", { id:mut.id, yes, quorum:2 });
+      if (yes < 2){ mut.verdict = "DENIED"; mut.reason = "COUNCIL_QUORUM"; }
+      else {
+        mut.verdict = "PROMOTED";
+        const gain = (0.02 + 0.06*mut.score*Math.random()) / (1 + K.promoted*0.08);
+        K.capability.push(+(K.capability[K.capability.length-1] + gain).toFixed(4));
+      }
+    }
+  }
+  if (mut.verdict === "PROMOTED"){ K.promoted++; appendEvent("MUTATION_PROMOTED", { id:mut.id, target, capability:K.capability[K.capability.length-1] }); }
+  else { K.denied++; K.capability.push(K.capability[K.capability.length-1]); appendEvent("MUTATION_DENIED", { id:mut.id, target, reason:mut.reason }); }
+  K.mutations.unshift(mut);
+  refreshTiles(); drawCap(); renderVerdictLog();
+  return mut;
+}
+const REASON_TEXT = {
+  NO_VERIFIED_EVIDENCE: "No verified evidence attached — boundary stays shut.",
+  SCORE_BELOW_GATE:     "Evaluator score under 0.600 — held at the gate.",
+  COUNCIL_QUORUM:       "Council quorum not reached (needs 2 of 3)."
+};
+
+/* ---------- gate animation ---------- */
+let gateBusy = false;
+async function animateGate(mut){
+  const pod=$("#pod"), doors=$("#doors"), out=$("#cap-out"), v=$("#verdict");
+  const il={ev:$("#il-ev"), sc:$("#il-sc"), cn:$("#il-cn")};
+  const reset = el => el.className = "ilock";
+  [il.ev,il.sc,il.cn].forEach(reset);
+  il.cn.innerHTML = '<i class="lamp"></i>COUNCIL 0/3';
+  doors.className="gate-doors"; out.classList.remove("lit");
+  pod.className="pod"; pod.style.left="6%";
+  const step = REDUCED ? 0 : 1;
+  v.className="verdict"; v.textContent = "Δ "+mut.id+" · "+mut.kind+" → "+mut.target;
+  await sleep(60*step); pod.classList.add("show");
+  await sleep(150*step); pod.style.left="34%";
+  await sleep(1100*step);
+
+  il.ev.classList.add("armed"); await sleep(500*step);
+  if (mut.validEvidence.length === 0){
+    il.ev.className="ilock tripped";
+    return denySeq();
+  }
+  il.ev.className="ilock latched";
+  il.ev.innerHTML = '<i class="lamp"></i>EVIDENCE ×'+mut.validEvidence.length;
+
+  il.sc.classList.add("armed"); await sleep(600*step);
+  v.textContent = "evaluator score "+mut.score.toFixed(3)+" / gate 0.600";
+  if (mut.reason === "SCORE_BELOW_GATE"){ il.sc.className="ilock tripped"; return denySeq(); }
+  il.sc.className="ilock latched";
+
+  il.cn.classList.add("armed");
+  let yes=0;
+  for (let i=0;i<3;i++){
+    await sleep(420*step);
+    if (mut.votes[i]) yes++;
+    il.cn.innerHTML = '<i class="lamp"></i>COUNCIL '+yes+"/3";
+  }
+  if (mut.reason === "COUNCIL_QUORUM"){ il.cn.className="ilock tripped"; return denySeq(); }
+  il.cn.className="ilock latched";
+
+  /* pass */
+  await sleep(250*step);
+  doors.classList.add("open");
+  pod.classList.add("pass");
+  await sleep(420*step);
+  pod.style.left="86%";
+  await sleep(1100*step);
+  out.classList.add("lit");
+  v.className="verdict pass";
+  v.textContent = "PROMOTED · "+mut.target+" · capability → "+K.capability[K.capability.length-1].toFixed(3);
+  await sleep(900*step);
+  doors.classList.remove("open");
+  boundaryFlash("OPEN → CLOSED");
+
+  async function denySeq(){
+    doors.classList.add("deny");
+    pod.classList.add("deny");
+    await sleep(350*step);
+    pod.style.left="6%";
+    v.className="verdict deny";
+    v.textContent = "DENIED · "+REASON_TEXT[mut.reason];
+    await sleep(1100*step);
+    pod.classList.remove("show");
+    doors.classList.remove("deny");
+  }
+}
+function boundaryFlash(txt){
+  const t=$("#an-boundary-v"); t.textContent="OPEN";
+  $("#an-boundary").className="tile ok";
+  setTimeout(()=>{ t.textContent="CLOSED"; $("#an-boundary").className="tile hold"; }, 1400);
+}
+async function submitMutation(fields){
+  const mut = judgeMutation(fields);
+  if (!gateBusy){ gateBusy=true; await animateGate(mut); gateBusy=false; }
+  return mut;
+}
+
+/* ---------- workflow loop ---------- */
+const WF_TARGETS = ["kernel/scheduler","skills/planner","gate/policy","memory/index","eval/harness","io/tooluse"];
+const WF_DESCS = ["tighten retry envelope","prune stale traces","raise evidence bar","batch small calls","cache cold lookups","narrow tool scope"];
+function ringStage(name){
+  $$(".rnode").forEach(n=>n.classList.remove("active"));
+  if (name) $("#rn-"+name).classList.add("active");
+}
+function cyclogLine(html){
+  const el=$("#cyclog");
+  const d=document.createElement("div"); d.innerHTML=html;
+  el.prepend(d);
+  while (el.children.length>40) el.lastChild.remove();
+}
+async function runWorkflow({goal, cycles=6, budget=1.0}, log=cyclogLine){
+  if (K.wf.running) return "workflow already running";
+  K.wf.running=true; K.wf.halt=false;
+  $("#wf-start").disabled=true; $("#wf-stop").disabled=false;
+  appendEvent("WORKFLOW_STARTED", { goal, cycles, budget });
+  const share=budget/3;
+  const roles=["improver","evaluator","council"];
+  const team=roles.map(r=>{
+    let a=K.agents.find(x=>x.role===r && x.status!=="halted" && x.name.startsWith("wf-"));
+    return a || createAgent({name:"wf-"+r, intent:goal, role:r, budget:share});
+  });
+  const [imp,evl,cnl]=team;
+  const step = REDUCED?0:1;
+  let c=1;
+  for (; c<=cycles; c++){
+    if (K.wf.halt){ log('<span class="no">■ halted by operator at cycle '+c+"</span>"); appendEvent("WORKFLOW_HALTED",{at:c}); break; }
+    $("#corecycle").textContent="cycle "+c+"/"+cycles;
+    log("<b>cycle "+c+"</b> · "+goal);
+
+    ringStage("improver"); imp.status="running"; renderAgents();
+    if (!charge(imp, rnd(0.02,0.05), "improve")){ log('<span class="no">■ improver budget gate closed — loop fails closed</span>'); break; }
+    const target=WF_TARGETS[Math.floor(Math.random()*WF_TARGETS.length)];
+    const desc=WF_DESCS[Math.floor(Math.random()*WF_DESCS.length)];
+    const nEv=Math.floor(rnd(1,3.7));
+    const evidence=[];
+    for (let i=0;i<nEv;i++) evidence.push(await runEvidenceProbe("wf-c"+c));
+    log('<span class="am">improver</span> Δ '+target+' · "'+desc+'" · evidence ×'+nEv);
+    await sleep(750*step); imp.status="idle";
+
+    ringStage("evaluator"); evl.status="running"; renderAgents();
+    if (!charge(evl, rnd(0.015,0.04), "evaluate")){ log('<span class="no">■ evaluator budget gate closed</span>'); break; }
+    await sleep(650*step); evl.status="idle";
+
+    ringStage("council"); cnl.status="running"; renderAgents();
+    if (!charge(cnl, rnd(0.01,0.03), "vote")){ log('<span class="no">■ council budget gate closed</span>'); break; }
+    const mut=judgeMutation({kind:"skill", target, desc, evidence});
+    if (mut.score!==undefined) log('<span class="cy">evaluator</span> score '+mut.score.toFixed(3)+' / 0.600');
+    await sleep(650*step); cnl.status="idle"; renderAgents();
+
+    if (mut.verdict==="PROMOTED")
+      log('<span class="ok">council → PROMOTED</span> · capability '+K.capability[K.capability.length-1].toFixed(3));
+    else
+      log('<span class="no">council → DENIED</span> · '+mut.reason);
+    ringStage(null);
+    await sleep(420*step);
+  }
+  const done=!K.wf.halt && c>cycles;
+  if (done){ appendEvent("WORKFLOW_COMPLETED",{goal,cycles}); log('<span class="ok">■ workflow complete · '+K.promoted+' total promotions on record</span>'); }
+  $("#corecycle").textContent="cycle —"; ringStage(null);
+  K.wf.running=false;
+  $("#wf-start").disabled=false; $("#wf-stop").disabled=true;
+  renderAgents(); refreshTiles();
+  return done?"completed":"halted";
+}
+
+/* ---------- verify chain ---------- */
+async function verifyChain(animate){
+  let ok=true, brokenAt=-1, prev="GENESIS";
+  for (const e of K.events){
+    const h=await sha256(e.seq+"|"+e.ts+"|"+e.type+"|"+JSON.stringify(e.data)+"|"+e.prev);
+    const good = h===e.hash && e.prev===prev;
+    if (animate){
+      const el=document.querySelector('[data-seq="'+e.seq+'"]');
+      if (el){ el.classList.add(good?"verified":"broken"); if(!REDUCED) await sleep(45); }
+    }
+    if (!good){ ok=false; brokenAt=e.seq; break; }
+    prev=e.hash;
+  }
+  K.chainOk=ok;
+  $("#an-chain-v").textContent = ok?"VERIFIED":"BROKEN";
+  $("#an-chain").className = "tile "+(ok?"ok":"fail");
+  $("#an-chain-sub").textContent = ok? K.events.length+" links intact" : "break at seq "+brokenAt;
+  return {ok, brokenAt, links:K.events.length};
+}
+
+/* ---------- rendering ---------- */
+function refreshTiles(){
+  $("#an-events-v").textContent=K.events.length;
+  $("#an-prom-v").textContent=K.promoted;
+  $("#an-den-v").textContent=K.denied;
+  $("#an-spend-v").textContent=money(K.spendTotal);
+  $("#an-agents-v").textContent=K.agents.length;
+  $("#an-agents-sub").textContent=K.agents.filter(a=>a.status==="running").length+" running · "+K.agents.filter(a=>a.status==="halted").length+" halted";
+  $("#cap-now").textContent=K.capability[K.capability.length-1].toFixed(3);
+  $("#an-kernel-sub").textContent="v"+K.version;
+}
+function drawCap(){
+  const svg=$("#capchart"), s=K.capability, W=320, H=88, P=6;
+  const min=Math.min(...s), max=Math.max(...s), span=(max-min)||0.001;
+  const x=i=> s.length<2 ? W/2 : P+(W-2*P)*i/(s.length-1);
+  const y=v=> H-P-(H-2*P)*((v-min)/span);
+  let d="M"+x(0)+" "+y(s[0]);
+  for (let i=1;i<s.length;i++) d+=" L"+x(i)+" "+y(s[i]);
+  svg.innerHTML=
+    '<path d="'+d+' L'+x(s.length-1)+' '+(H-2)+' L'+x(0)+' '+(H-2)+' Z" fill="rgba(232,163,61,.09)"/>'+
+    '<path d="'+d+'" fill="none" stroke="#E8A33D" stroke-width="2" stroke-linejoin="round"/>'+
+    '<circle cx="'+x(s.length-1)+'" cy="'+y(s[s.length-1])+'" r="3.2" fill="#37C978"/>';
+}
+function renderAgents(){
+  const wrap=$("#agentlist");
+  if (!K.agents.length){
+    wrap.innerHTML='<div class="empty">No agent processes. Create one below, or let <code>lrsi workflow</code> spin up an improver · evaluator · council trio.</div>';
+    return;
+  }
+  wrap.innerHTML=K.agents.map(a=>{
+    const pct=Math.min(100, a.spent/a.budget*100);
+    const cls=pct>=100?"out":pct>70?"warn":"";
+    return '<div class="agent">'+
+      '<div class="agent-top"><b>'+esc(a.name)+'</b>'+
+      '<span class="chip '+a.role+'">'+a.role+'</span>'+
+      '<span class="chip st-'+a.status+'">'+a.status+'</span>'+
+      '<span class="aid" style="margin-left:auto">'+a.id+'</span></div>'+
+      '<div class="aid" style="margin-top:4px">intent: '+esc(a.intent||"—")+' · model: '+esc(a.model)+' · tasks: '+a.tasks+'</div>'+
+      '<div class="budget"><i class="'+cls+'" style="width:'+pct+'%"></i></div>'+
+      '<div class="spend"><span>'+money(a.spent)+' spent</span><span>'+money(a.budget)+' budget</span></div>'+
+      '<div class="task-row"><input type="text" placeholder="goal for '+esc(a.name)+'" data-task="'+a.id+'">'+
+      '<button class="btn small ghost" data-run="'+a.id+'">Run</button></div>'+
+    '</div>';
+  }).join("");
+}
+function renderVerdictLog(){
+  const el=$("#verdictlog");
+  if (!K.mutations.length) return;
+  el.innerHTML=K.mutations.slice(0,8).map(m=>
+    '<div class="link '+(m.verdict==="PROMOTED"?"verified":"broken")+'" style="margin-top:8px">'+
+    '<div class="l-top"><span class="seq">'+m.id+'</span><span class="etype">'+m.verdict+'</span>'+
+    '<span class="ets">'+m.ts.slice(11)+'</span></div>'+
+    '<div class="hashes">'+esc(m.kind)+' → <b>'+esc(m.target)+'</b> · '+esc(m.desc)+
+    (m.verdict==="DENIED"?' · <span style="color:var(--red)">'+m.reason+'</span>':' · score '+(m.score||0).toFixed(3))+'</div></div>'
+  ).join("");
+}
+let trailDirty=false;
+const kernelSubscribers=[];
+function onTrailChanged(ev){
+  refreshTiles();
+  tickerPush(ev);
+  for (const f of kernelSubscribers){ try{ f(ev); }catch(e){} }
+  if (!trailDirty){ trailDirty=true; requestAnimationFrame(()=>{ trailDirty=false; renderTrail(); }); }
+}
+function renderTrail(){
+  const el=$("#chain"), N=30;
+  const evs=K.events.slice(-N).reverse();
+  el.innerHTML=evs.map(e=>
+    '<div class="link" data-seq="'+e.seq+'">'+
+    '<div class="l-top"><span class="seq">#'+String(e.seq).padStart(4,"0")+'</span>'+
+    '<span class="etype">'+e.type+'</span><span class="ets">'+e.ts.slice(11)+'</span></div>'+
+    '<div class="hashes">'+esc(shortData(e.data))+'</div>'+
+    '<div class="hashes">prev '+e.prev.slice(0,10)+'… → <b>'+e.hash.slice(0,10)+'…</b></div>'+
+    '</div>'
+  ).join("");
+  $("#trailmsg").textContent = K.events.length>N
+    ? "Showing the latest "+N+" of "+K.events.length+" links. Verification always walks the full chain from genesis."
+    : "Each entry carries the SHA-256 of its predecessor. One altered byte breaks everything after it.";
+}
+function shortData(d){
+  const s=JSON.stringify(d);
+  return s.length>96? s.slice(0,93)+"…": s;
+}
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+/* ---------- ticker ---------- */
+const tickerBuf=[];
+function tickerPush(ev){
+  tickerBuf.push("<b>#"+ev.seq+"</b> "+ev.type);
+  if (tickerBuf.length>10) tickerBuf.shift();
+  const one=tickerBuf.join('<span style="opacity:.35"> ▪ </span>');
+  $("#ticker").innerHTML=one+'<span style="opacity:.35"> ▪ </span>'+one;
+}
+
+/* ---------- live uplink ---------- */
+async function probeApi(base){
+  base=(base||"").replace(/\/+$/,"");
+  if (!base) return { ok:false, msg:"No base URL." };
+  const get=async p=>{
+    const ctl=new AbortController(); const t=setTimeout(()=>ctl.abort(),3500);
+    try{ const r=await fetch(base+p,{signal:ctl.signal}); clearTimeout(t);
+         if(!r.ok) throw new Error("HTTP "+r.status);
+         return await r.json();
+    } finally { clearTimeout(t); }
+  };
+  try{
+    const health=await get("/health");
+    let metrics=null; try{ metrics=await get("/metrics"); }catch(e){}
+    K.live=true;
+    $("#modebadge").className="badge live"; $("#modebadge").innerHTML='<i class="lamp"></i>LIVE';
+    appendEvent("API_UPLINK_OK",{ base });
+    const kv=o=>Object.entries(o||{}).map(([k,v])=>'<div class="kv"><span>'+esc(k)+'</span><span>'+esc(typeof v==="object"?JSON.stringify(v):v)+'</span></div>').join("");
+    $("#livekv").innerHTML='<div class="eyebrow" style="margin-top:14px">live /health</div>'+kv(health)+
+      (metrics?'<div class="eyebrow" style="margin-top:14px">live /metrics</div>'+kv(metrics):"");
+    return { ok:true, msg:"Uplink established → "+base, health, metrics };
+  }catch(e){
+    K.live=false;
+    $("#modebadge").className="badge sim"; $("#modebadge").innerHTML='<i class="lamp"></i>SIM';
+    appendEvent("API_UPLINK_FAIL",{ base, error:String(e&&e.name==="AbortError"?"timeout":e) });
+    return { ok:false, msg:"Unreachable or CORS-blocked ("+(e&&e.name==="AbortError"?"timeout":e.message||e)+"). Staying on SIM kernel — fail closed, not open." };
+  }
+}
+
+/* ---------- terminal ---------- */
+const T={ hist:[], hi:-1 };
+function tprint(html, cls){
+  const d=document.createElement("div");
+  if (cls) d.className=cls;
+  d.innerHTML=html;
+  $("#termout").appendChild(d);
+  $("#termout").scrollTop=$("#termout").scrollHeight;
+}
+function tpre(obj){ tprint("<pre>"+esc(typeof obj==="string"?obj:JSON.stringify(obj,null,2))+"</pre>","dim"); }
+function tokenize(line){
+  const out=[]; const re=/"([^"]*)"|'([^']*)'|(\S+)/g; let m;
+  while ((m=re.exec(line))) out.push(m[1]??m[2]??m[3]);
+  return out;
+}
+function opts(tokens){
+  const o={_:[]};
+  for (let i=0;i<tokens.length;i++){
+    const t=tokens[i];
+    if (t.startsWith("--")) o[t.slice(2)]=tokens[++i];
+    else if (t.startsWith("-") && t.length===2) o[t.slice(1)]=tokens[++i];
+    else o._.push(t);
+  }
+  return o;
+}
+const FLAG={ i:"intent", r:"role", b:"budget", m:"model", k:"kind", t:"target", d:"desc", e:"evidence", g:"goal", c:"cycles" };
+function norm(o){ for (const k in FLAG) if (o[k]!==undefined && o[FLAG[k]]===undefined) o[FLAG[k]]=o[k]; return o; }
+
+const HELP =
+"LRSI shell — same kernel as the panels above\n\n"+
+"  lrsi status                          health + metrics\n"+
+"  lrsi metrics                         raw metrics json\n"+
+"  lrsi version\n"+
+"  lrsi agents list\n"+
+"  lrsi agents create <name> -i \"intent\" [-r role] [-b 0.5] [-m model]\n"+
+"  lrsi agents run <id> \"goal\"\n"+
+"  lrsi agents get <id>\n"+
+"  lrsi evidence probe                  append EVIDENCE_VERIFIED, returns ev-id\n"+
+"  lrsi mutate -t <target> -d \"desc\" [-k kind] [-e ev-3,ev-7]\n"+
+"  lrsi workflow -g \"goal\" [-c 6] [-b 1.0]\n"+
+"  lrsi audit [--verify]                hash-chained trail\n"+
+"  lrsi wiki [list · open <title> · add \"Title\" -d \"body [[Link]]\"]\n"+
+"  lrsi skills\n"+
+"  probe [url]                          try a live lrsi-api /health\n"+
+"  clear · help";
+
+async function exec(line){
+  tprint("lrsi ▸ "+esc(line),"in");
+  const tk=tokenize(line);
+  if (!tk.length) return;
+  const cmd=tk[0]==="lrsi"? tk[1]||"" : tk[0];
+  const rest=tk[0]==="lrsi"? tk.slice(2) : tk.slice(1);
+  const o=norm(opts(rest));
+  try{
+    switch(cmd){
+      case "help": tpre(HELP); break;
+      case "clear": $("#termout").innerHTML=""; break;
+      case "version": tprint("LRSI "+K.version,"ok"); break;
+      case "status": {
+        tprint("<span class='ok'>OK</span> {'status':'healthy','mode':'"+(K.live?"live":"sim")+"'}");
+        tpre(metricsObj()); break;
+      }
+      case "metrics": tpre(metricsObj()); break;
+      case "skills":
+        tpre([{name:"multi-agent-workflow",path:"skills/multi-agent-workflow/SKILL.md"},
+              {name:"evidence-probe",path:"skills/evidence-probe/SKILL.md"},
+              {name:"gate-policy",path:"skills/gate-policy/SKILL.md"}]); break;
+      case "agents": {
+        const sub=o._[0];
+        if (sub==="list"){
+          if (!K.agents.length) tprint("No agents.","dim");
+          else tpre(K.agents.map(a=>({id:a.id,name:a.name,role:a.role,status:a.status,spend:money(a.spent)+" / "+money(a.budget)})));
+        } else if (sub==="create"){
+          const name=o._[1]; if(!name||!o.intent){ tprint("usage: lrsi agents create <name> -i \"intent\"","err"); break; }
+          const a=createAgent({name,intent:o.intent,role:o.role||"generic",budget:parseFloat(o.budget||"0.5"),model:o.model||"mock-local"});
+          tprint("<span class='ok'>Created</span> "+a.id+" ("+esc(a.name)+" / "+a.role+")");
+        } else if (sub==="run"){
+          const a=K.agents.find(x=>x.id===o._[1]||x.name===o._[1]);
+          if (!a){ tprint("no such agent: "+esc(o._[1]||""),"err"); break; }
+          const goal=o._.slice(2).join(" ")||"(no goal)";
+          const r=await runTask(a,goal);
+          if (r.ok) tprint("Status: <span class='ok'>completed</span> · "+esc(r.result)+" · spend "+money(r.cost));
+          else tprint("Status: <span class='err'>halted</span> · "+esc(r.error),"err");
+        } else if (sub==="get"){
+          const a=K.agents.find(x=>x.id===o._[1]||x.name===o._[1]);
+          a? tpre(a): tprint("no such agent","err");
+        } else tprint("agents: list · create · run · get","dim");
+        break;
+      }
+      case "evidence": {
+        const id=await runEvidenceProbe("shell");
+        tprint("<span class='ok'>EVIDENCE_VERIFIED</span> → "+id+"  (cite with -e "+id+")"); break;
+      }
+      case "mutate": {
+        if (!o.target||!o.desc){ tprint("usage: lrsi mutate -t <target> -d \"desc\" [-e ev-1,ev-2]","err"); break; }
+        const evd=(o.evidence||"").split(",").map(s=>s.trim()).filter(Boolean);
+        const m=await submitMutation({kind:o.kind||"skill",target:o.target,desc:o.desc,evidence:evd});
+        if (m.verdict==="PROMOTED") tprint("<span class='ok'>PROMOTED</span> "+m.id+" · capability "+K.capability[K.capability.length-1].toFixed(3));
+        else tprint("<span class='err'>DENIED</span> "+m.id+" · "+m.reason+" — "+REASON_TEXT[m.reason]);
+        break;
+      }
+      case "workflow": {
+        if (!o.goal){ tprint("usage: lrsi workflow -g \"goal\" [-c 6] [-b 1.0]","err"); break; }
+        go("loop");
+        tprint("<span class='cy'>workflow launched</span> — watch the LOOP panel; halting is one tap away.");
+        runWorkflow({goal:o.goal,cycles:parseInt(o.cycles||"6",10),budget:parseFloat(o.budget||"1.0")})
+          .then(r=>tprint("workflow "+r,"cy"));
+        break;
+      }
+      case "audit": {
+        if (rest.includes("--verify")){
+          const r=await verifyChain(false);
+          tprint(r.ok? "<span class='ok'>Chain integrity: TRUE</span> ("+r.links+" links)"
+                     : "<span class='err'>Chain integrity: FALSE</span> break at seq "+r.brokenAt);
+        }
+        tpre(K.events.slice(-12).map(e=>({seq:e.seq,type:e.type,hash:e.hash.slice(0,12)+"…"})));
+        tprint(K.events.length+" events on the trail. Full chain on the TRAIL panel.","dim");
+        break;
+      }
+      case "wiki": await wikiCmd(o); break;
+      case "probe": {
+        const r=await probeApi(o._[0]||$("#apibase").value);
+        tprint(r.ok? "<span class='ok'>"+esc(r.msg)+"</span>" : "<span class='err'>"+esc(r.msg)+"</span>");
+        break;
+      }
+      default: tprint("unknown: "+esc(cmd)+" — try help","err");
+    }
+  }catch(e){ tprint("error: "+esc(e.message||e),"err"); }
+}
+function metricsObj(){
+  return {
+    uptime_s: Math.floor((Date.now()-K.bootAt)/1000),
+    events: K.events.length,
+    agents: K.agents.length,
+    mutations_promoted: K.promoted,
+    mutations_denied: K.denied,
+    promotion_rate: (K.promoted+K.denied)? +(K.promoted/(K.promoted+K.denied)).toFixed(3): null,
+    capability_index: K.capability[K.capability.length-1],
+    spend_usd: +K.spendTotal.toFixed(4),
+    chain_verified: K.chainOk
+  };
+}
+
+/* ---------- wiring ---------- */
+function go(tab){
+  $$("section.tab").forEach(s=>s.classList.toggle("active", s.id==="tab-"+tab));
+  $$("[data-tab]").forEach(b=>b.classList.toggle("active", b.dataset.tab===tab));
+  window.scrollTo({top:0});
+}
+$$("[data-tab]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.tab)));
+
+document.addEventListener("click", async e=>{
+  const run=e.target.closest("[data-run]");
+  if (run){
+    const a=K.agents.find(x=>x.id===run.dataset.run);
+    const inp=document.querySelector('[data-task="'+run.dataset.run+'"]');
+    const goal=(inp&&inp.value.trim())||"ad-hoc probe";
+    run.disabled=true;
+    await runTask(a,goal);
+    run.disabled=false;
+  }
+});
+$("#ag-create").addEventListener("click",()=>{
+  const name=$("#ag-name").value.trim();
+  if (!name){ $("#ag-name").focus(); return; }
+  createAgent({ name, intent:$("#ag-intent").value.trim(), role:$("#ag-role").value,
+                budget:parseFloat($("#ag-budget").value)||0.5, model:$("#ag-model").value.trim()||"mock-local" });
+  $("#ag-name").value=""; $("#ag-intent").value="";
+});
+
+const pendingEvidence=[];
+function renderEvChips(){
+  $("#evchips").innerHTML = pendingEvidence.length
+    ? pendingEvidence.map((id,i)=>'<span class="ev-chip">'+id+'<button data-evx="'+i+'" aria-label="remove">×</button></span>').join("")
+    : '<span class="note" style="margin:0">none attached — gate will deny</span>';
+}
+$("#evchips").addEventListener("click",e=>{
+  const b=e.target.closest("[data-evx]");
+  if (b){ pendingEvidence.splice(+b.dataset.evx,1); renderEvChips(); }
+});
+$("#ev-gen").addEventListener("click", async e=>{
+  e.target.disabled=true;
+  pendingEvidence.push(await runEvidenceProbe("panel"));
+  renderEvChips(); e.target.disabled=false;
+});
+$("#ev-clear").addEventListener("click",()=>{ pendingEvidence.length=0; renderEvChips(); });
+$("#mu-send").addEventListener("click", async e=>{
+  const target=$("#mu-target").value.trim(), desc=$("#mu-desc").value.trim();
+  if (!target){ $("#mu-target").focus(); return; }
+  e.target.disabled=true;
+  await submitMutation({ kind:$("#mu-kind").value, target, desc:desc||"(no description)", evidence:[...pendingEvidence] });
+  pendingEvidence.length=0; renderEvChips();
+  e.target.disabled=false;
+});
+
+$("#wf-start").addEventListener("click",()=>{
+  const goal=$("#wf-goal").value.trim()||"improve kernel throughput under the gate";
+  runWorkflow({ goal, cycles:parseInt($("#wf-cycles").value,10)||6, budget:parseFloat($("#wf-budget").value)||1 });
+});
+$("#wf-stop").addEventListener("click",()=>{ K.wf.halt=true; });
+
+$("#verifychain").addEventListener("click", async e=>{
+  e.target.disabled=true;
+  $$("#chain .link").forEach(l=>l.classList.remove("verified","broken"));
+  const r=await verifyChain(true);
+  $("#trailmsg").textContent = r.ok
+    ? "Chain integrity: TRUE — "+r.links+" links re-hashed from genesis, every prev-pointer intact."
+    : "Chain integrity: FALSE — break detected at seq "+r.brokenAt+".";
+  e.target.disabled=false;
+});
+$("#exportchain").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(K.events,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="lrsi-trail.json"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+});
+
+$("#probe").addEventListener("click", async e=>{
+  e.target.disabled=true;
+  $("#probemsg").textContent="Probing…";
+  const r=await probeApi($("#apibase").value);
+  $("#probemsg").textContent=r.msg;
+  e.target.disabled=false;
+});
+
+/* terminal drawer */
+let termBooted=false;
+function termOpen(open){
+  $("#termdrawer").classList.toggle("open",open);
+  if (open){
+    if (!termBooted){
+      termBooted=true;
+      tprint("LRSI "+K.version+" — Local Recursive Self-Improvement","ok");
+      tprint("fail closed · boundary-gated mutations · append-only trail","dim");
+      tprint("type <b>help</b> for the command set","dim");
+    }
+    setTimeout(()=>$("#termin").focus(),120);
+  }
+}
+$("#termtoggle").addEventListener("click",()=>termOpen(!$("#termdrawer").classList.contains("open")));
+$("#termclose").addEventListener("click",()=>termOpen(false));
+document.addEventListener("keydown",e=>{ if (e.key==="Escape") termOpen(false); });
+$("#termin").addEventListener("keydown",e=>{
+  const inp=e.target;
+  if (e.key==="Enter"){
+    const v=inp.value.trim(); inp.value="";
+    if (v){ T.hist.push(v); T.hi=T.hist.length; exec(v); }
+  } else if (e.key==="ArrowUp"){ if (T.hi>0){ T.hi--; inp.value=T.hist[T.hi]; e.preventDefault(); } }
+  else if (e.key==="ArrowDown"){ if (T.hi<T.hist.length-1){ T.hi++; inp.value=T.hist[T.hi]; } else { T.hi=T.hist.length; inp.value=""; } }
+});
+
+/* uptime */
+setInterval(()=>{
+  const s=Math.floor((Date.now()-K.bootAt)/1000);
+  const p=n=>String(n).padStart(2,"0");
+  $("#uptime").textContent=p(Math.floor(s/3600))+":"+p(Math.floor(s/60)%60)+":"+p(s%60);
+},1000);
+
+/* ---------- boot ---------- */
+(async function boot(){
+  renderEvChips(); renderAgents(); drawCap(); refreshTiles();
+  await appendEvent("KERNEL_BOOT",{ version:K.version, runtime:"browser-sim", core:"IRSI" });
+  await appendEvent("BOUNDARY_ARMED",{ mode:"fail-closed", quorum:"2/3", score_gate:0.6 });
+  await verifyChain(false);
+})();
+</script>
+<script>
+/* =============================================================
+   Constellation — 3D autonomous knowledge wiki
+   Nodes are notes; the kernel scribes new ones from the trail.
+   ============================================================= */
+"use strict";
+const WIKI = (() => {
+  const MAX_NOTES = 90, EV_CAP = 55, REST = 88;
+  const COLORS = {
+    core:"#E8A33D", surface:"#4CC3E0", skill:"#37C978", agent:"#4CC3E0",
+    mutation:"#37C978", denial:"#E5484D", evidence:"#2c9a63",
+    domain:"#c98a2e", workflow:"#4CC3E0", stub:"#5b6675", note:"#AEB8C6"
+  };
+  const notes = new Map();      // id -> note
+  const links = [];             // [idA, idB]
+  const adj = new Map();        // id -> Set(id)
+  let selected = null, alpha = 1, scribe = true, autoRot = !REDUCED;
+  let active = false, lastScribed = "";
+  const norm = t => t.trim().toLowerCase();
+
+  /* ----- data ----- */
+  function findByTitle(t){ t = norm(t); for (const n of notes.values()) if (norm(n.title) === t) return n; return null; }
+  function linkPair(a, b){
+    if (a === b) return;
+    if (adj.get(a) && adj.get(a).has(b)) return;
+    links.push([a, b]);
+    if (!adj.has(a)) adj.set(a, new Set());
+    if (!adj.has(b)) adj.set(b, new Set());
+    adj.get(a).add(b); adj.get(b).add(a);
+  }
+  const deg = id => (adj.get(id) ? adj.get(id).size : 0);
+  function parseWikilinks(body){
+    const out = []; const re = /\[\[([^\]]+)\]\]/g; let m;
+    while ((m = re.exec(body || ""))) out.push(m[1].trim());
+    return out;
+  }
+  function spawnPos(nearId){
+    const base = nearId && notes.get(nearId) ? notes.get(nearId).p : null;
+    const r = () => rnd(-1, 1);
+    if (base) return { x: base.x + r()*46, y: base.y + r()*46, z: base.z + r()*46 };
+    const v = { x: r(), y: r(), z: r() }, L = Math.hypot(v.x, v.y, v.z) || 1, R = rnd(90, 190);
+    return { x: v.x/L*R, y: v.y/L*R, z: v.z/L*R };
+  }
+  function addNote({ title, kind = "note", body = "", quiet = false, source = "operator" }){
+    const existing = findByTitle(title);
+    if (existing){
+      if (existing.kind === "stub" && kind !== "stub"){ existing.kind = kind; if (body) existing.body = body; }
+      return existing;
+    }
+    if (notes.size >= MAX_NOTES) return null;
+    const wl = parseWikilinks(body);
+    const targets = [];
+    for (const t of wl){
+      let n = findByTitle(t);
+      if (!n && notes.size < MAX_NOTES)
+        n = bare(t, "stub", "Auto-scribed stub. The kernel referenced this; no operator note exists yet.");
+      if (n) targets.push(n.id);
+    }
+    const note = bare(title, kind, body, targets[0]);
+    for (const t of targets) linkPair(note.id, t);
+    alpha = 1;
+    if (!quiet) appendEvent("WIKI_NOTE_ADDED", { title, kind, links: targets.length, source });
+    lastScribed = title;
+    refreshStats();
+    return note;
+  }
+  function bare(title, kind, body, nearId){
+    const p = spawnPos(nearId);
+    const n = { id: uid("wk"), title, kind, body, created: now(),
+                p, v: { x: 0, y: 0, z: 0 } };
+    notes.set(n.id, n);
+    return n;
+  }
+
+  /* ----- seed corpus (grounded in the repo) ----- */
+  function seed(){
+    const S = (t, k, b) => addNote({ title: t, kind: k, body: b, quiet: true });
+    S("LRSI Kernel", "core", "Sovereign closed-loop runtime built on the [[IRSI Runtime Core]]. Every delta passes the [[Fail-Closed Boundary]]; every state change lands on the [[Event Trail]]; promotions compound the [[Capability Index]].");
+    S("IRSI Runtime Core", "core", "The open runtime core beneath the [[LRSI Kernel]] — the event-sourced substrate everything else stands on.");
+    S("Fail-Closed Boundary", "core", "Default state: shut. Opens only when [[Evidence]], the [[Evaluator]] score gate and [[Council]] quorum all latch. Denials are recorded on the [[Event Trail]], never discarded.");
+    S("Evidence", "core", "Verified observations cited by mutations. No verified evidence, no passage through the [[Fail-Closed Boundary]]. Manufactured by [[Skill: evidence-probe]].");
+    S("Event Trail", "core", "Append-only, SHA-256 hash-chained log kept by the [[LRSI Kernel]]. This constellation is scribed from it.");
+    S("Capability Index", "core", "The self-improvement curve. Only promotions through the [[Fail-Closed Boundary]] move it upward.");
+    S("Improver", "agent", "Proposes deltas against the goal and attaches [[Evidence]] before handing off to the [[Evaluator]].");
+    S("Evaluator", "agent", "Scores each delta against the 0.600 gate, then feeds the [[Council]].");
+    S("Council", "agent", "Three seats, quorum of two — the final interlock on the [[Fail-Closed Boundary]].");
+    S("Surfaces", "core", "One kernel, many doors: [[CLI]], [[SDK]], [[REST API]], [[MCP Server]].");
+    S("CLI", "surface", "lrsi status · workflow · mutate · audit — the operator door into the [[LRSI Kernel]].");
+    S("SDK", "surface", "LRSIClient: the same gates as the [[CLI]], programmatic.");
+    S("REST API", "surface", "lrsi-api on :8080 — what this console's LIVE uplink probes. A door on [[Surfaces]].");
+    S("MCP Server", "surface", "lrsi-mcp exposes kernel tools to agent hosts via [[Surfaces]].");
+    S("Skill: multi-agent-workflow", "skill", "The packaged loop: [[Improver]] → [[Evaluator]] → [[Council]] under one budget.");
+    S("Skill: gate-policy", "skill", "Tunes thresholds on the [[Fail-Closed Boundary]].");
+    S("Skill: evidence-probe", "skill", "Runs verification probes and appends [[Evidence]] to the [[Event Trail]].");
+    for (let i = 0; i < 140; i++) step(0.9);
+  }
+
+  /* ----- autonomous scribe ----- */
+  const DOMAIN_MAP = { kernel: "LRSI Kernel", gate: "Fail-Closed Boundary", eval: "Evaluator", skills: "Skill: multi-agent-workflow" };
+  function onEvent(ev){
+    if (!scribe || notes.size >= MAX_NOTES) { refreshStats(); return; }
+    const d = ev.data || {};
+    if (ev.type === "AGENT_CREATED"){
+      const roleNote = { improver: "Improver", evaluator: "Evaluator", council: "Council" }[d.role] || "LRSI Kernel";
+      addNote({ title: "Agent: " + d.name, kind: "agent", source: "scribe",
+        body: "Spawned with a " + money(d.budget) + " budget on model " + d.model + ". Role links to [[" + roleNote + "]], accountable to the [[LRSI Kernel]]." });
+    } else if (ev.type === "MUTATION_PROMOTED"){
+      const m = K.mutations.find(x => x.id === d.id) || {};
+      const domTitle = DOMAIN_MAP[(d.target || "").split("/")[0]] || "Domain: " + (d.target || "?").split("/")[0];
+      let body = (m.kind || "skill") + " → " + d.target + " — " + (m.desc || "") +
+                 ". Passed the [[Fail-Closed Boundary]] and moved the [[Capability Index]] to " + (d.capability || 0).toFixed(3) + ". Domain: [[" + domTitle + "]].";
+      if (notes.size < EV_CAP) for (const e of (m.validEvidence || []).slice(0, 2)) body += " Cited [[Evidence " + e + "]].";
+      addNote({ title: "Δ " + d.id, kind: "mutation", body, source: "scribe" });
+      for (const e of (m.validEvidence || []).slice(0, 2)){
+        const en = findByTitle("Evidence " + e);
+        if (en && en.kind === "stub"){ en.kind = "evidence"; en.body = "Verified probe cited by [[Δ " + d.id + "]]. Lives on the [[Event Trail]]."; }
+      }
+    } else if (ev.type === "MUTATION_DENIED" && notes.size < 70){
+      addNote({ title: "Δ " + d.id + " ✕", kind: "denial", source: "scribe",
+        body: "Denied at the [[Fail-Closed Boundary]] — " + d.reason + ". Target was " + d.target + ". The gate held." });
+    } else if (ev.type === "WORKFLOW_STARTED"){
+      const g = String(d.goal || "").slice(0, 34);
+      addNote({ title: "Workflow: " + g, kind: "workflow", source: "scribe",
+        body: '"' + d.goal + '" — ' + d.cycles + " cycles, " + money(d.budget) + " budget, run by [[Improver]] → [[Evaluator]] → [[Council]]." });
+    }
+    refreshStats();
+  }
+  kernelSubscribers.push(onEvent);
+
+  /* ----- physics ----- */
+  function step(a){
+    const arr = [...notes.values()], n = arr.length;
+    for (let i = 0; i < n; i++){
+      const A = arr[i];
+      for (let j = i + 1; j < n; j++){
+        const B = arr[j];
+        let dx = A.p.x - B.p.x, dy = A.p.y - B.p.y, dz = A.p.z - B.p.z;
+        let d2 = dx*dx + dy*dy + dz*dz; if (d2 < 20) d2 = 20;
+        const f = 1500 / d2 * a, d = Math.sqrt(d2);
+        dx /= d; dy /= d; dz /= d;
+        A.v.x += dx*f; A.v.y += dy*f; A.v.z += dz*f;
+        B.v.x -= dx*f; B.v.y -= dy*f; B.v.z -= dz*f;
+      }
+    }
+    for (const [ia, ib] of links){
+      const A = notes.get(ia), B = notes.get(ib); if (!A || !B) continue;
+      let dx = B.p.x - A.p.x, dy = B.p.y - A.p.y, dz = B.p.z - A.p.z;
+      const d = Math.hypot(dx, dy, dz) || 1, f = (d - REST) * 0.02 * a;
+      dx /= d; dy /= d; dz /= d;
+      A.v.x += dx*f; A.v.y += dy*f; A.v.z += dz*f;
+      B.v.x -= dx*f; B.v.y -= dy*f; B.v.z -= dz*f;
+    }
+    for (const N of notes.values()){
+      N.v.x -= N.p.x * 0.004 * a; N.v.y -= N.p.y * 0.004 * a; N.v.z -= N.p.z * 0.004 * a;
+      N.v.x *= 0.86; N.v.y *= 0.86; N.v.z *= 0.86;
+      N.p.x += N.v.x; N.p.y += N.v.y; N.p.z += N.v.z;
+      const R = Math.hypot(N.p.x, N.p.y, N.p.z);
+      if (R > 250){ const s = 250 / R; N.p.x *= s; N.p.y *= s; N.p.z *= s; }
+    }
+  }
+
+  /* ----- camera + render ----- */
+  const cv = $("#wikicanvas"), ctx = cv.getContext("2d");
+  let yaw = 0.6, pitch = 0.28, zoom = 1, W = 0, H = 0;
+  let focusId = null, focusUntil = 0;
+  let query = "";
+  function fit(){
+    const d = Math.min(2, window.devicePixelRatio || 1);
+    W = cv.clientWidth; H = cv.clientHeight;
+    if (!W || !H) return;
+    cv.width = W * d; cv.height = H * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+  function project(N){
+    const cy = Math.cos(yaw), sy = Math.sin(yaw), cx = Math.cos(pitch), sx = Math.sin(pitch);
+    const x1 = N.p.x * cy - N.p.z * sy, z1 = N.p.x * sy + N.p.z * cy;
+    const y2 = N.p.y * cx - z1 * sx,   z2 = N.p.y * sx + z1 * cx;
+    const s = zoom * 340 / Math.max(60, 380 - z2);
+    N.sx = W/2 + x1 * s; N.sy = H/2 + y2 * s; N.sz = z2; N.ss = s;
+  }
+  function lerpAngle(a, b, t){
+    let d = b - a; while (d > Math.PI) d -= 2*Math.PI; while (d < -Math.PI) d += 2*Math.PI;
+    return a + d * t;
+  }
+  function matches(N){ return !query || N.title.toLowerCase().includes(query); }
+  function draw(){
+    if (!W || !H) return;
+    ctx.clearRect(0, 0, W, H);
+    if (focusId && performance.now() < focusUntil){
+      const N = notes.get(focusId);
+      if (N){
+        const z1 = Math.hypot(N.p.x, N.p.z);
+        yaw = lerpAngle(yaw, Math.atan2(N.p.x, N.p.z), 0.14);
+        pitch = lerpAngle(pitch, Math.atan2(N.p.y, z1), 0.14);
+      }
+    } else if (autoRot && !drag.active) yaw += 0.0016;
+    const arr = [...notes.values()];
+    for (const N of arr) project(N);
+    for (const [ia, ib] of links){
+      const A = notes.get(ia), B = notes.get(ib); if (!A || !B) continue;
+      const depth = (A.sz + B.sz) / 2;
+      let al = 0.10 + 0.16 * ((depth + 250) / 500);
+      if (query && !(matches(A) && matches(B))) al *= 0.15;
+      if (selected && (ia === selected || ib === selected)) al = 0.7;
+      ctx.strokeStyle = "rgba(120,140,165," + al.toFixed(3) + ")";
+      ctx.lineWidth = selected && (ia === selected || ib === selected) ? 1.4 : 1;
+      ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke();
+    }
+    arr.sort((a, b) => a.sz - b.sz);
+    const labeled = arr.filter(N => N.id === selected || (deg(N.id) >= 3 && N.sz > 0) || (query && matches(N)))
+                       .sort((a, b) => (deg(b.id) + b.sz/60) - (deg(a.id) + a.sz/60)).slice(0, 12);
+    for (const N of arr){
+      const r = Math.max(2.2, Math.min(15, (3 + deg(N.id) * 0.9) * N.ss * 0.85));
+      let al = matches(N) ? 0.55 + 0.45 * ((N.sz + 250) / 500) : 0.12;
+      ctx.globalAlpha = Math.min(1, al);
+      ctx.fillStyle = COLORS[N.kind] || COLORS.note;
+      ctx.beginPath(); ctx.arc(N.sx, N.sy, r, 0, 7); ctx.fill();
+      if (N.id === selected){
+        ctx.globalAlpha = 1; ctx.strokeStyle = "#F2F6FB"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(N.sx, N.sy, r + 3.5, 0, 7); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.font = "600 10px 'IBM Plex Mono', ui-monospace, monospace";
+    ctx.textAlign = "center";
+    for (const N of labeled){
+      if (!matches(N) && N.id !== selected) continue;
+      ctx.fillStyle = "rgba(13,17,24,.75)";
+      const t = N.title.length > 22 ? N.title.slice(0, 21) + "…" : N.title;
+      const w = ctx.measureText(t).width;
+      ctx.fillRect(N.sx - w/2 - 3, N.sy - 24, w + 6, 13);
+      ctx.fillStyle = N.id === selected ? "#F2F6FB" : "#AEB8C6";
+      ctx.fillText(t, N.sx, N.sy - 14);
+    }
+  }
+  function frame(){
+    if (active && document.visibilityState === "visible"){
+      if (alpha > 0.02){ step(alpha); alpha *= 0.97; }
+      draw();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ----- interaction ----- */
+  const drag = { active: false, moved: 0, x: 0, y: 0, t: 0 };
+  const ptrs = new Map(); let pinchD = 0;
+  cv.addEventListener("pointerdown", e => {
+    cv.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 1){ drag.active = true; drag.moved = 0; drag.x = e.clientX; drag.y = e.clientY; drag.t = performance.now(); }
+    if (ptrs.size === 2){ const [a, b] = [...ptrs.values()]; pinchD = Math.hypot(a.x - b.x, a.y - b.y); }
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!ptrs.has(e.pointerId)) return;
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrs.size === 2){
+      const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchD) zoom = Math.max(0.45, Math.min(2.4, zoom * d / pinchD));
+      pinchD = d; drag.moved = 99; return;
+    }
+    if (!drag.active) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    drag.moved += Math.abs(dx) + Math.abs(dy);
+    yaw += dx * 0.0052;
+    pitch = Math.max(-1.25, Math.min(1.25, pitch + dy * 0.0052));
+    drag.x = e.clientX; drag.y = e.clientY;
+    focusUntil = 0;
+  });
+  function endPtr(e){
+    const wasTap = ptrs.size === 1 && drag.moved < 9 && performance.now() - drag.t < 400;
+    ptrs.delete(e.pointerId); pinchD = 0;
+    if (ptrs.size === 0) drag.active = false;
+    if (wasTap){
+      const rect = cv.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      let best = null, bd = 1e9;
+      for (const N of notes.values()){
+        const d = Math.hypot(N.sx - mx, N.sy - my);
+        if (d < bd){ bd = d; best = N; }
+      }
+      if (best && bd < 26) select(best.id, false);
+    }
+  }
+  cv.addEventListener("pointerup", endPtr);
+  cv.addEventListener("pointercancel", endPtr);
+  cv.addEventListener("wheel", e => {
+    e.preventDefault();
+    zoom = Math.max(0.45, Math.min(2.4, zoom * (1 - e.deltaY * 0.001)));
+  }, { passive: false });
+
+  /* ----- note viewer ----- */
+  function select(id, focus = true){
+    if (!notes.has(id)) return;
+    selected = id;
+    if (focus){ focusId = id; focusUntil = performance.now() + 950; }
+    renderNote();
+  }
+  function renderNote(){
+    const el = $("#wk-note"), N = notes.get(selected);
+    if (!N){ el.innerHTML = '<div class="empty">Tap a star to open its note.</div>'; return; }
+    const body = esc(N.body || "No body yet.").replace(/\[\[([^\]]+)\]\]/g, (_, t) => {
+      const hit = findByTitle(t);
+      return '<a class="wl' + (hit ? "" : " missing") + '" data-wl="' + esc(t) + '">' + esc(t) + "</a>";
+    });
+    const back = [];
+    for (const n of notes.values())
+      if (n.id !== N.id && adj.get(N.id) && adj.get(N.id).has(n.id))
+        back.push('<span class="chip k-' + n.kind + '" data-open="' + n.id + '">' + esc(n.title) + "</span>");
+    el.innerHTML =
+      '<div class="wn-head"><b>' + esc(N.title) + '</b><span class="chip k-' + N.kind + '">' + N.kind + "</span>" +
+      '<span class="wn-meta">' + N.created.slice(11) + " · " + deg(N.id) + " links</span></div>" +
+      '<div class="wk-body">' + body + "</div>" +
+      (back.length ? '<div class="backlinks">' + back.join("") + "</div>" : "");
+  }
+  $("#wk-note").addEventListener("click", e => {
+    const wl = e.target.closest("[data-wl]");
+    if (wl){
+      let n = findByTitle(wl.dataset.wl);
+      if (!n) n = addNote({ title: wl.dataset.wl, kind: "stub", body: "Created by following a missing link — very Obsidian. Write it via Add Note or the [[Event Trail]] will outgrow it." });
+      if (n) select(n.id);
+      return;
+    }
+    const op = e.target.closest("[data-open]");
+    if (op) select(op.dataset.open);
+  });
+
+  /* ----- controls ----- */
+  function refreshStats(){
+    $("#wk-stats").innerHTML =
+      "<b>" + notes.size + "</b> notes · <b>" + links.length + "</b> links · scribe " +
+      (scribe ? (notes.size >= MAX_NOTES ? '<span style="color:var(--red)">at capacity</span>' : "on") : "off") +
+      (lastScribed ? ' · last: <b>' + esc(lastScribed.slice(0, 24)) + "</b>" : "");
+  }
+  $("#wk-rot").addEventListener("click", e => {
+    autoRot = !autoRot; e.currentTarget.setAttribute("aria-pressed", autoRot);
+  });
+  $("#wk-scribe").addEventListener("click", e => {
+    scribe = !scribe; e.currentTarget.setAttribute("aria-pressed", scribe); refreshStats();
+  });
+  $("#wk-search").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); });
+  $("#wk-search").addEventListener("keydown", e => {
+    if (e.key !== "Enter" || !query) return;
+    for (const n of notes.values()) if (n.title.toLowerCase().includes(query)){ select(n.id); break; }
+  });
+  $("#wk-add").addEventListener("click", () => {
+    const t = $("#wk-title").value.trim();
+    if (!t){ $("#wk-title").focus(); return; }
+    const n = addNote({ title: t, kind: "note", body: $("#wk-body").value.trim() });
+    if (n){ select(n.id); $("#wk-title").value = ""; $("#wk-body").value = ""; }
+  });
+  $$("[data-tab]").forEach(b => b.addEventListener("click", () => setActive(b.dataset.tab === "wiki")));
+  window.addEventListener("resize", fit);
+  function setActive(on){
+    active = on;
+    if (on){ requestAnimationFrame(() => { fit(); alpha = Math.max(alpha, 0.15); }); }
+  }
+
+  /* ----- boot ----- */
+  seed();
+  appendEvent("WIKI_MOUNTED", { notes: notes.size, links: links.length, scribe: true });
+  const root = findByTitle("LRSI Kernel");
+  if (root){ selected = root.id; renderNote(); }
+  refreshStats(); fit();
+  $("#wk-rot").setAttribute("aria-pressed", autoRot);
+  requestAnimationFrame(frame);
+
+  return { addNote, select, findByTitle, setActive, notes, links, get scribe(){ return scribe; } };
+})();
+
+/* terminal: lrsi wiki … */
+async function wikiCmd(o){
+  const sub = o._[0] || "stats";
+  if (sub === "list"){
+    tpre([...WIKI.notes.values()].slice(0, 40).map(n => ({ title: n.title, kind: n.kind })));
+  } else if (sub === "open"){
+    const q = o._.slice(1).join(" ").toLowerCase();
+    let hit = null;
+    for (const n of WIKI.notes.values()) if (n.title.toLowerCase().includes(q)){ hit = n; break; }
+    if (!hit){ tprint("no note matching: " + esc(q), "err"); return; }
+    go("wiki"); WIKI.setActive(true); WIKI.select(hit.id);
+    tprint("<span class='ok'>opened</span> " + esc(hit.title));
+  } else if (sub === "add"){
+    const t = o._[1];
+    if (!t){ tprint('usage: lrsi wiki add "Title" -d "body with [[Links]]"', "err"); return; }
+    const n = WIKI.addNote({ title: t, kind: "note", body: o.desc || "" });
+    if (n){ tprint("<span class='ok'>added</span> " + esc(n.title) + " → constellation"); }
+    else tprint("constellation at capacity (90 notes)", "err");
+  } else {
+    tpre({ notes: WIKI.notes.size, links: WIKI.links.length, scribe: WIKI.scribe, cap: 90 });
+  }
+}
+</script>
+</body>
+</html>
